@@ -1,10 +1,16 @@
 import { useEffect, useState, useRef } from "react";
 import heroImage from "@/assets/hero-photos.jpg";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Camera, Image, FolderOpen } from "lucide-react";
+import { Camera, Image, FolderOpen, Plus } from "lucide-react";
+
+interface UploadedPhoto {
+  id: string;
+  url: string;
+}
 
 const Hero = () => {
   const [showUploadOptions, setShowUploadOptions] = useState(false);
+  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const rollInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
@@ -20,7 +26,14 @@ const Hero = () => {
       Promise.all(files)
         .then((uploadedFiles: any[]) => {
           console.log('Uploaded files:', uploadedFiles);
-          alert('Your photos have been uploaded. Scroll down to choose your package.');
+          
+          // Add uploaded photos to state
+          const newPhotos: UploadedPhoto[] = uploadedFiles.map((file: any) => ({
+            id: file.uuid || Math.random().toString(36).substr(2, 9),
+            url: file.cdnUrl || URL.createObjectURL(input.files![0])
+          }));
+          
+          setUploadedPhotos(prev => [...prev, ...newPhotos]);
           setShowUploadOptions(false);
         })
         .catch((err: any) => {
@@ -57,6 +70,13 @@ const Hero = () => {
 
   const handleUploadClick = () => {
     setShowUploadOptions(true);
+  };
+
+  const handleContinueToPayment = () => {
+    if (uploadedPhotos.length >= 5) {
+      // TODO: Navigate to payment or next step
+      alert('Continue to payment - this will be implemented next!');
+    }
   };
 
   const triggerCamera = () => {
@@ -125,6 +145,73 @@ const Hero = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent"></div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Photo Preview Section */}
+      <section className="py-12 md:py-16 bg-muted/30">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
+          <div className="space-y-6">
+            {/* Header with count and add more button */}
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-display font-semibold text-foreground mb-2">
+                  Your Photos
+                </h2>
+                <p className="text-lg text-muted-foreground">
+                  Photos added: <span className="font-semibold text-foreground">{uploadedPhotos.length}</span> (minimum 5)
+                </p>
+                {uploadedPhotos.length < 5 && (
+                  <p className="text-sm text-destructive mt-1">
+                    You need at least 5 photos before you can continue.
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={handleUploadClick}
+                className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-semibold transition-smooth"
+              >
+                <Plus className="h-5 w-5" />
+                Add more photos
+              </button>
+            </div>
+
+            {/* Photo Grid */}
+            {uploadedPhotos.length === 0 ? (
+              <div className="text-center py-12 px-4 border-2 border-dashed border-border rounded-2xl bg-background">
+                <Image className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                <p className="text-muted-foreground">
+                  No photos added yet. Add at least 5 photos to continue.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+                {uploadedPhotos.map((photo) => (
+                  <div
+                    key={photo.id}
+                    className="aspect-square rounded-lg overflow-hidden border-2 border-border shadow-soft hover:shadow-premium transition-smooth"
+                  >
+                    <img
+                      src={photo.url}
+                      alt="Uploaded photo"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Continue Button */}
+            <div className="pt-4 flex justify-center">
+              <button
+                onClick={handleContinueToPayment}
+                disabled={uploadedPhotos.length < 5}
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-semibold ring-offset-background transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 shadow-premium hover:scale-105 w-full sm:w-auto min-w-[280px] h-14 px-10 text-base"
+              >
+                Continue to Payment
+              </button>
             </div>
           </div>
         </div>
