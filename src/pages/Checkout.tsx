@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,11 +21,22 @@ const checkoutSchema = z.object({
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 const Checkout = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const photoCount = (location.state?.photoCount as number) || 0;
+  const [photoCount, setPhotoCount] = useState<number>(0);
   const pricePerPhoto = 6;
   const totalPrice = photoCount * pricePerPhoto;
+
+  useEffect(() => {
+    const storedCount = localStorage.getItem('mc_photoCount');
+    const count = storedCount ? parseInt(storedCount, 10) : 0;
+    
+    if (!storedCount || count < 5) {
+      navigate('/upload');
+      return;
+    }
+    
+    setPhotoCount(count);
+  }, [navigate]);
 
   const {
     register,
@@ -43,35 +54,6 @@ const Checkout = () => {
     // Stripe integration will be added here later
     setIsSubmitting(false);
   };
-
-  // Redirect if no photos
-  if (photoCount === 0) {
-    return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <Header />
-        <main className="flex-1 flex items-center justify-center px-4 py-12">
-          <Card className="max-w-md w-full">
-            <CardContent className="pt-6">
-              <h2 className="text-2xl font-display text-foreground mb-4 text-center">
-                No Photos Added
-              </h2>
-              <p className="text-muted-foreground text-center mb-6">
-                Please upload your photos before proceeding to checkout.
-              </p>
-              <Button
-                onClick={() => navigate("/upload")}
-                className="w-full"
-                size="lg"
-              >
-                Upload Photos
-              </Button>
-            </CardContent>
-          </Card>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
