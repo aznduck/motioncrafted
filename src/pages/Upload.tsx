@@ -145,6 +145,13 @@ const Upload = () => {
             </h1>
           </div>
 
+          {/* Tips */}
+          <div className="text-center mb-3">
+            <p className="text-sm text-muted-foreground">
+              📸 Tips: Fill frame • Phone flat (no angles) • Good lighting
+            </p>
+          </div>
+
           {/* Upload Method Buttons */}
           <div className="grid gap-3 max-w-2xl mx-auto">
             <button
