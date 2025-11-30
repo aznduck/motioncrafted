@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from "react";
 import heroImage from "@/assets/hero-photos.jpg";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Camera, Image, FolderOpen, Plus } from "lucide-react";
 
 interface UploadedPhoto {
@@ -9,11 +8,12 @@ interface UploadedPhoto {
 }
 
 const Hero = () => {
-  const [showUploadOptions, setShowUploadOptions] = useState(false);
+  const [showStep1, setShowStep1] = useState(false);
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const rollInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
+  const step1Ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleFileUpload = (input: HTMLInputElement) => {
@@ -34,7 +34,11 @@ const Hero = () => {
           }));
           
           setUploadedPhotos(prev => [...prev, ...newPhotos]);
-          setShowUploadOptions(false);
+          
+          // Scroll to Step 1 section if not already visible
+          if (step1Ref.current) {
+            step1Ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         })
         .catch((err: any) => {
           console.error('Upload error:', err);
@@ -69,14 +73,27 @@ const Hero = () => {
   }, []);
 
   const handleUploadClick = () => {
-    setShowUploadOptions(true);
+    setShowStep1(true);
+    // Scroll to Step 1 section
+    setTimeout(() => {
+      if (step1Ref.current) {
+        step1Ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   };
 
-  const handleContinueToPayment = () => {
+  const handleContinue = () => {
     if (uploadedPhotos.length >= 5) {
-      // TODO: Navigate to payment or next step
-      alert('Continue to payment - this will be implemented next!');
+      // Scroll to next section (below Step 1)
+      const nextSection = step1Ref.current?.nextElementSibling;
+      if (nextSection) {
+        nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
+  };
+
+  const handleDeletePhoto = (photoId: string) => {
+    setUploadedPhotos(prev => prev.filter(photo => photo.id !== photoId));
   };
 
   const triggerCamera = () => {
@@ -150,113 +167,117 @@ const Hero = () => {
         </div>
       </section>
 
-      {/* Photo Preview Section */}
-      <section className="py-12 md:py-16 bg-muted/30">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
-          <div className="space-y-6">
-            {/* Header with count and add more button */}
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-display font-semibold text-foreground mb-2">
-                  Your Photos
+      {/* Step 1 - Add Photos Section */}
+      {showStep1 && (
+        <section ref={step1Ref} className="py-16 md:py-24 bg-background border-t-2 border-border">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-5xl">
+            <div className="space-y-8">
+              {/* Header */}
+              <div className="text-center space-y-2">
+                <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground">
+                  Step 1 – Add your photos
                 </h2>
                 <p className="text-lg text-muted-foreground">
-                  Photos added: <span className="font-semibold text-foreground">{uploadedPhotos.length}</span> (minimum 5)
+                  Choose how you'd like to add photos to your animation
                 </p>
-                {uploadedPhotos.length < 5 && (
-                  <p className="text-sm text-destructive mt-1">
-                    You need at least 5 photos before you can continue.
-                  </p>
-                )}
               </div>
-              <button
-                onClick={handleUploadClick}
-                className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-semibold transition-smooth"
-              >
-                <Plus className="h-5 w-5" />
-                Add more photos
-              </button>
-            </div>
 
-            {/* Photo Grid */}
-            {uploadedPhotos.length === 0 ? (
-              <div className="text-center py-12 px-4 border-2 border-dashed border-border rounded-2xl bg-background">
-                <Image className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                <p className="text-muted-foreground">
-                  No photos added yet. Add at least 5 photos to continue.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
-                {uploadedPhotos.map((photo) => (
-                  <div
-                    key={photo.id}
-                    className="aspect-square rounded-lg overflow-hidden border-2 border-border shadow-soft hover:shadow-premium transition-smooth"
-                  >
-                    <img
-                      src={photo.url}
-                      alt="Uploaded photo"
-                      className="w-full h-full object-cover"
-                    />
+              {/* Upload Options - Three Cards */}
+              <div className="grid md:grid-cols-3 gap-4 max-w-3xl mx-auto">
+                <button
+                  onClick={triggerCamera}
+                  className="flex flex-col items-center gap-4 p-6 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-smooth text-center group"
+                >
+                  <Camera className="h-10 w-10 text-primary" />
+                  <div>
+                    <div className="font-semibold text-lg mb-1">Take Photo</div>
+                    <div className="text-sm text-muted-foreground">Open your device camera</div>
                   </div>
-                ))}
-              </div>
-            )}
+                </button>
 
-            {/* Continue Button */}
-            <div className="pt-4 flex justify-center">
-              <button
-                onClick={handleContinueToPayment}
-                disabled={uploadedPhotos.length < 5}
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-semibold ring-offset-background transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 shadow-premium hover:scale-105 w-full sm:w-auto min-w-[280px] h-14 px-10 text-base"
-              >
-                Continue to Payment
-              </button>
+                <button
+                  onClick={triggerCameraRoll}
+                  className="flex flex-col items-center gap-4 p-6 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-smooth text-center group"
+                >
+                  <Image className="h-10 w-10 text-primary" />
+                  <div>
+                    <div className="font-semibold text-lg mb-1">Select from Camera Roll</div>
+                    <div className="text-sm text-muted-foreground">Choose from your photo library</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={triggerFiles}
+                  className="flex flex-col items-center gap-4 p-6 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-smooth text-center group"
+                >
+                  <FolderOpen className="h-10 w-10 text-primary" />
+                  <div>
+                    <div className="font-semibold text-lg mb-1">Choose from Local Files</div>
+                    <div className="text-sm text-muted-foreground">Browse your device storage</div>
+                  </div>
+                </button>
+              </div>
+
+              {/* Photo Count and Gallery */}
+              <div className="space-y-6 pt-8">
+                <div className="text-center">
+                  <p className="text-xl font-semibold text-foreground mb-2">
+                    Photos added: <span className="text-primary">{uploadedPhotos.length}</span> (minimum 5)
+                  </p>
+                  {uploadedPhotos.length < 5 && (
+                    <p className="text-sm text-destructive">
+                      Add at least 5 photos to continue.
+                    </p>
+                  )}
+                </div>
+
+                {/* Photo Grid */}
+                {uploadedPhotos.length === 0 ? (
+                  <div className="text-center py-16 px-4 border-2 border-dashed border-border rounded-2xl bg-muted/30">
+                    <Image className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                    <p className="text-lg text-muted-foreground">
+                      No photos added yet. Add at least 5 photos to continue.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+                    {uploadedPhotos.map((photo) => (
+                      <div
+                        key={photo.id}
+                        className="relative aspect-square rounded-lg overflow-hidden border-2 border-border shadow-soft hover:shadow-premium transition-smooth group"
+                      >
+                        <img
+                          src={photo.url}
+                          alt="Uploaded photo"
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          onClick={() => handleDeletePhoto(photo.id)}
+                          className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-smooth hover:scale-110"
+                          aria-label="Delete photo"
+                        >
+                          <Plus className="h-4 w-4 rotate-45" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Continue Button */}
+                <div className="pt-8 flex justify-center">
+                  <button
+                    onClick={handleContinue}
+                    disabled={uploadedPhotos.length < 5}
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-semibold ring-offset-background transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 shadow-premium hover:scale-105 w-full sm:w-auto min-w-[280px] h-14 px-10 text-base"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <Dialog open={showUploadOptions} onOpenChange={setShowUploadOptions}>
-        <DialogContent className="sm:max-w-md">
-          <div className="flex flex-col gap-4 py-4">
-            <h2 className="text-2xl font-display font-semibold text-center mb-2">Choose Upload Method</h2>
-            
-            <button
-              onClick={triggerCamera}
-              className="flex items-center gap-4 p-6 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-smooth text-left group"
-            >
-              <Camera className="h-8 w-8 text-primary" />
-              <div>
-                <div className="font-semibold text-lg">Take Photo</div>
-                <div className="text-sm text-muted-foreground">Open your device camera</div>
-              </div>
-            </button>
-
-            <button
-              onClick={triggerCameraRoll}
-              className="flex items-center gap-4 p-6 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-smooth text-left group"
-            >
-              <Image className="h-8 w-8 text-primary" />
-              <div>
-                <div className="font-semibold text-lg">Select from Camera Roll</div>
-                <div className="text-sm text-muted-foreground">Choose from your photo library</div>
-              </div>
-            </button>
-
-            <button
-              onClick={triggerFiles}
-              className="flex items-center gap-4 p-6 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-smooth text-left group"
-            >
-              <FolderOpen className="h-8 w-8 text-primary" />
-              <div>
-                <div className="font-semibold text-lg">Choose from Local Files</div>
-                <div className="text-sm text-muted-foreground">Browse your device storage</div>
-              </div>
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </section>
+      )}
     </>
   );
 };
