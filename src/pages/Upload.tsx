@@ -37,34 +37,35 @@ const Upload = () => {
       const files = target.files;
 
       if (files && files.length > 0) {
-        const file = files[0];
+        // Process all selected files
+        Array.from(files).forEach((file) => {
+          try {
+            if ((window as any).uploadcare) {
+              const uploadedFile = (window as any).uploadcare.fileFrom(
+                "object",
+                file,
+                { publicKey: "31b0edbe0c35c307eaa8" }
+              );
 
-        try {
-          if ((window as any).uploadcare) {
-            const uploadedFile = (window as any).uploadcare.fileFrom(
-              "object",
-              file,
-              { publicKey: "31b0edbe0c35c307eaa8" }
-            );
-
-            uploadedFile.done((fileInfo: any) => {
+              uploadedFile.done((fileInfo: any) => {
+                const newPhoto: UploadedPhoto = {
+                  id: fileInfo.uuid,
+                  url: fileInfo.cdnUrl,
+                };
+                setUploadedPhotos((prev) => [...prev, newPhoto]);
+              });
+            } else {
+              const localUrl = URL.createObjectURL(file);
               const newPhoto: UploadedPhoto = {
-                id: fileInfo.uuid,
-                url: fileInfo.cdnUrl,
+                id: Date.now().toString() + Math.random(),
+                url: localUrl,
               };
               setUploadedPhotos((prev) => [...prev, newPhoto]);
-            });
-          } else {
-            const localUrl = URL.createObjectURL(file);
-            const newPhoto: UploadedPhoto = {
-              id: Date.now().toString(),
-              url: localUrl,
-            };
-            setUploadedPhotos((prev) => [...prev, newPhoto]);
+            }
+          } catch (error) {
+            console.error("Upload error:", error);
           }
-        } catch (error) {
-          console.error("Upload error:", error);
-        }
+        });
 
         target.value = "";
       }
