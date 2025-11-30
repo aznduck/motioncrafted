@@ -7,7 +7,7 @@ const Footer = () => {
     <footer className="py-12 bg-muted/30 border-t border-border">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center space-y-6">
-          <div className="font-serif text-xl font-semibold tracking-tight text-foreground">
+          <div className="font-elegant text-xl font-semibold tracking-tight text-foreground">
             Motion Crafted
           </div>
           
