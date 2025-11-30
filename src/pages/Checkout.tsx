@@ -51,7 +51,8 @@ const Checkout = () => {
   const onSubmit = async (data: CheckoutFormData) => {
     setIsSubmitting(true);
     console.log("Checkout form submitted:", data);
-    // Stripe integration will be added here later
+    // Navigate to payment page
+    navigate('/payment');
     setIsSubmitting(false);
   };
 
