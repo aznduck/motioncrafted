@@ -9,7 +9,8 @@ const Hero = () => {
     const handleClick = () => {
       const dialog = (window as any).uploadcare.openDialog(null, {
         multiple: true,
-        imagesOnly: true
+        imagesOnly: true,
+        tabs: 'file camera'
       });
 
       dialog.done((fileGroup: any) => {
