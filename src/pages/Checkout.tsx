@@ -59,7 +59,7 @@ const Checkout = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       
-      <main className="flex-1 px-4 py-8 md:py-12">
+      <main className="flex-1 px-4 py-8 md:py-12 pt-24 md:pt-28">
         <div className="max-w-2xl mx-auto">
           {/* Title */}
           <div className="text-center mb-8">
@@ -77,9 +77,6 @@ const Checkout = () => {
               <div className="space-y-2 text-muted-foreground">
                 <p className="text-lg">
                   You added <span className="font-semibold text-foreground">{photoCount}</span> photo{photoCount !== 1 ? 's' : ''}
-                </p>
-                <p className="text-lg">
-                  Total price: <span className="font-semibold text-foreground">${pricePerPhoto} × {photoCount} = ${totalPrice}</span>
                 </p>
               </div>
             </CardContent>
