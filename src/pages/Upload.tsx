@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef } from "react";
-import { Camera, Image, FolderOpen, Plus } from "lucide-react";
+import { Camera, Image, FolderOpen, Plus, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface UploadedPhoto {
   id: string;
   url: string;
+  loading?: boolean;
 }
 
 const Upload = () => {
@@ -39,6 +41,16 @@ const Upload = () => {
       if (files && files.length > 0) {
         // Process all selected files
         Array.from(files).forEach((file) => {
+          const tempId = Date.now().toString() + Math.random();
+          
+          // Immediately add loading placeholder
+          const loadingPhoto: UploadedPhoto = {
+            id: tempId,
+            url: "",
+            loading: true,
+          };
+          setUploadedPhotos((prev) => [...prev, loadingPhoto]);
+
           try {
             if ((window as any).uploadcare) {
               const uploadedFile = (window as any).uploadcare.fileFrom(
@@ -48,22 +60,30 @@ const Upload = () => {
               );
 
               uploadedFile.done((fileInfo: any) => {
-                const newPhoto: UploadedPhoto = {
-                  id: fileInfo.uuid,
-                  url: fileInfo.cdnUrl,
-                };
-                setUploadedPhotos((prev) => [...prev, newPhoto]);
+                // Replace loading placeholder with actual image
+                setUploadedPhotos((prev) =>
+                  prev.map((photo) =>
+                    photo.id === tempId
+                      ? { id: fileInfo.uuid, url: fileInfo.cdnUrl, loading: false }
+                      : photo
+                  )
+                );
               });
             } else {
               const localUrl = URL.createObjectURL(file);
-              const newPhoto: UploadedPhoto = {
-                id: Date.now().toString() + Math.random(),
-                url: localUrl,
-              };
-              setUploadedPhotos((prev) => [...prev, newPhoto]);
+              // Replace loading placeholder with actual image
+              setUploadedPhotos((prev) =>
+                prev.map((photo) =>
+                  photo.id === tempId
+                    ? { id: tempId, url: localUrl, loading: false }
+                    : photo
+                )
+              );
             }
           } catch (error) {
             console.error("Upload error:", error);
+            // Remove loading placeholder on error
+            setUploadedPhotos((prev) => prev.filter((photo) => photo.id !== tempId));
           }
         });
 
@@ -178,18 +198,26 @@ const Upload = () => {
             <div className="grid grid-cols-3 gap-3 max-w-2xl mx-auto">
               {uploadedPhotos.map((photo) => (
                 <div key={photo.id} className="relative aspect-square rounded-lg overflow-hidden border-2 border-border shadow-soft">
-                  <img
-                    src={photo.url}
-                    alt="Uploaded photo"
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    onClick={() => handleDeletePhoto(photo.id)}
-                    className="absolute top-1 right-1 bg-background/90 hover:bg-destructive hover:text-destructive-foreground rounded-full p-1 transition-smooth shadow-soft"
-                    aria-label="Delete photo"
-                  >
-                    <Plus className="h-4 w-4 rotate-45" />
-                  </button>
+                  {photo.loading ? (
+                    <div className="w-full h-full flex items-center justify-center bg-muted">
+                      <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                    </div>
+                  ) : (
+                    <>
+                      <img
+                        src={photo.url}
+                        alt="Uploaded photo"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        onClick={() => handleDeletePhoto(photo.id)}
+                        className="absolute top-1 right-1 bg-background/90 hover:bg-destructive hover:text-destructive-foreground rounded-full p-1 transition-smooth shadow-soft"
+                        aria-label="Delete photo"
+                      >
+                        <Plus className="h-4 w-4 rotate-45" />
+                      </button>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
