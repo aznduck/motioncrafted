@@ -24,8 +24,8 @@ const Payment = () => {
   }, [navigate]);
 
   const handlePayment = () => {
-    // Placeholder for Stripe integration
-    console.log("Payment button clicked");
+    // Navigate to order confirmed page
+    navigate('/order-confirmed');
   };
 
   return (
