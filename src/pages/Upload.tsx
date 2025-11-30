@@ -130,8 +130,9 @@ const Upload = () => {
   };
 
   const handleContinue = () => {
-    // Navigate to checkout or next step
-    alert("Proceeding to checkout with " + uploadedPhotos.length + " photos");
+    const count = uploadedPhotos.length;
+    localStorage.setItem('mc_photoCount', String(count));
+    navigate('/checkout');
   };
 
   return (
