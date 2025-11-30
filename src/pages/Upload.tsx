@@ -123,9 +123,6 @@ const Upload = () => {
             <h1 className="text-3xl md:text-4xl font-display text-foreground">
               Step 1 – Add Your Photos
             </h1>
-            <p className="text-base md:text-lg text-muted-foreground">
-              Add at least 5 photos to continue.
-            </p>
           </div>
 
           {/* Upload Method Buttons */}
@@ -167,7 +164,7 @@ const Upload = () => {
           {/* Photo Count */}
           <div className="text-center py-4">
             <p className="text-lg font-semibold text-foreground">
-              Photos added: {uploadedPhotos.length} (minimum 5)
+              Photos added: {uploadedPhotos.length}
             </p>
             {uploadedPhotos.length < 5 && (
               <p className="text-sm text-destructive mt-1">
@@ -205,7 +202,7 @@ const Upload = () => {
               disabled={uploadedPhotos.length < 5}
               className="px-10 py-4 rounded-lg bg-primary text-primary-foreground font-semibold text-lg shadow-premium hover:shadow-soft hover:bg-primary/90 transition-smooth disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary disabled:hover:shadow-premium"
             >
-              Continue ({uploadedPhotos.length}/5)
+              Continue
             </button>
           </div>
         </div>
