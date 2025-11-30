@@ -1,6 +1,12 @@
 import { useEffect, useState, useRef } from "react";
 import heroImage from "@/assets/hero-photos.jpg";
 import { Camera, Image, FolderOpen, Plus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface UploadedPhoto {
   id: string;
@@ -10,6 +16,7 @@ interface UploadedPhoto {
 const Hero = () => {
   const [showStep1, setShowStep1] = useState(false);
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
+  const [showAddPhotoDialog, setShowAddPhotoDialog] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const rollInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
@@ -97,14 +104,17 @@ const Hero = () => {
   };
 
   const triggerCamera = () => {
+    setShowAddPhotoDialog(false);
     cameraInputRef.current?.click();
   };
 
   const triggerCameraRoll = () => {
+    setShowAddPhotoDialog(false);
     rollInputRef.current?.click();
   };
 
   const triggerFiles = () => {
+    setShowAddPhotoDialog(false);
     filesInputRef.current?.click();
   };
 
@@ -169,7 +179,7 @@ const Hero = () => {
 
       {/* Step 1 - Add Photos Section */}
       {showStep1 && (
-        <section ref={step1Ref} className="py-16 md:py-24 bg-background border-t-2 border-border">
+        <section ref={step1Ref} className="min-h-screen py-12 md:py-16 bg-background border-t-2 border-border">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-5xl">
             <div className="space-y-8">
               {/* Header */}
@@ -263,6 +273,19 @@ const Hero = () => {
                   </div>
                 )}
 
+                {/* Add More Photos Button */}
+                {uploadedPhotos.length > 0 && (
+                  <div className="flex justify-center pt-4">
+                    <button
+                      onClick={() => setShowAddPhotoDialog(true)}
+                      className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-smooth font-semibold"
+                    >
+                      <Plus className="h-5 w-5" />
+                      Add More Photos
+                    </button>
+                  </div>
+                )}
+
                 {/* Continue Button */}
                 <div className="pt-8 flex justify-center">
                   <button
@@ -278,6 +301,49 @@ const Hero = () => {
           </div>
         </section>
       )}
+
+      {/* Add Photo Dialog */}
+      <Dialog open={showAddPhotoDialog} onOpenChange={setShowAddPhotoDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl font-display">Add More Photos</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <button
+              onClick={triggerCamera}
+              className="flex items-center gap-4 p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-smooth group"
+            >
+              <Camera className="h-8 w-8 text-primary" />
+              <div className="text-left">
+                <div className="font-semibold">Take Photo</div>
+                <div className="text-sm text-muted-foreground">Open your device camera</div>
+              </div>
+            </button>
+
+            <button
+              onClick={triggerCameraRoll}
+              className="flex items-center gap-4 p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-smooth group"
+            >
+              <Image className="h-8 w-8 text-primary" />
+              <div className="text-left">
+                <div className="font-semibold">Select from Camera Roll</div>
+                <div className="text-sm text-muted-foreground">Choose from your photo library</div>
+              </div>
+            </button>
+
+            <button
+              onClick={triggerFiles}
+              className="flex items-center gap-4 p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-smooth group"
+            >
+              <FolderOpen className="h-8 w-8 text-primary" />
+              <div className="text-left">
+                <div className="font-semibold">Choose from Local Files</div>
+                <div className="text-sm text-muted-foreground">Browse your device storage</div>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
