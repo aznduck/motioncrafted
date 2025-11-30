@@ -25,6 +25,7 @@ All colors MUST be HSL.
 
     --muted: 35 20% 94%;
     --muted-foreground: 25 10% 50%;
+    --hero-subtext: 25 12% 40%;
 
     --accent: 28 40% 88%;
     --accent-foreground: 25 15% 25%;
@@ -77,6 +78,7 @@ All colors MUST be HSL.
 
     --muted: 25 15% 20%;
     --muted-foreground: 25 10% 65%;
+    --hero-subtext: 25 12% 70%;
 
     --accent: 25 15% 20%;
     --accent-foreground: 35 20% 95%;
