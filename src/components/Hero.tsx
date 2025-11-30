@@ -1,7 +1,27 @@
-import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 import heroImage from "@/assets/hero-photos.jpg";
 
 const Hero = () => {
+  useEffect(() => {
+    const btn = document.getElementById('uploadcare-trigger');
+    if (!btn || typeof (window as any).uploadcare === 'undefined') return;
+
+    const handleClick = () => {
+      const dialog = (window as any).uploadcare.openDialog(null, {
+        multiple: true,
+        imagesOnly: true
+      });
+
+      dialog.done((fileGroup: any) => {
+        alert('Your photos have been uploaded. Scroll down to choose your package.');
+        console.log('Uploaded file group:', fileGroup);
+      });
+    };
+
+    btn.addEventListener('click', handleClick);
+    return () => btn.removeEventListener('click', handleClick);
+  }, []);
+
   return (
     <section className="relative pt-20 pb-16 md:pt-40 md:pb-24 lg:pt-48 lg:pb-32 overflow-hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -14,13 +34,12 @@ const Hero = () => {
               Premium handcrafted animations from your most cherished memories.
             </p>
             <div className="pt-2 md:pt-4">
-              <Button 
-                variant="hero" 
-                size="xl"
-                className="w-full sm:w-auto min-w-[280px] h-16 md:h-14 px-12 md:px-10 text-lg md:text-base"
+              <button 
+                id="uploadcare-trigger"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-semibold ring-offset-background transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 shadow-premium hover:scale-105 w-full sm:w-auto min-w-[280px] h-16 md:h-14 px-12 md:px-10 text-lg md:text-base cursor-pointer"
               >
                 Upload Your Photos
-              </Button>
+              </button>
             </div>
           </div>
           
