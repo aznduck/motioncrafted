@@ -10,7 +10,17 @@ const Hero = () => {
       const dialog = (window as any).uploadcare.openDialog(null, {
         multiple: true,
         imagesOnly: true,
-        tabs: 'file camera'
+        tabs: 'file camera',
+        tabsConfig: {
+          file: {
+            label: 'Select from Camera Roll',
+            showBrowseButton: true,
+            showTabs: false
+          },
+          camera: {
+            label: 'Take Photo'
+          }
+        }
       });
 
       dialog.done((fileGroup: any) => {
