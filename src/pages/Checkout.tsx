@@ -51,9 +51,8 @@ const Checkout = () => {
   const onSubmit = async (data: CheckoutFormData) => {
     setIsSubmitting(true);
     console.log("Checkout form submitted:", data);
-    // Navigate to payment page
-    navigate('/payment');
-    setIsSubmitting(false);
+    // Open Stripe payment link directly
+    window.location.href = 'https://buy.stripe.com/test_eVq00i2NCdkafqZ4pB1oI00';
   };
 
   return (
@@ -78,6 +77,9 @@ const Checkout = () => {
               <div className="space-y-2 text-muted-foreground">
                 <p className="text-lg">
                   You added <span className="font-semibold text-foreground">{photoCount}</span> photo{photoCount !== 1 ? 's' : ''}
+                </p>
+                <p className="text-lg">
+                  Total price: <span className="font-semibold text-foreground">${pricePerPhoto} × {photoCount} = ${totalPrice}</span>
                 </p>
               </div>
             </CardContent>
