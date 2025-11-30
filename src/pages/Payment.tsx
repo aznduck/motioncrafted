@@ -24,8 +24,8 @@ const Payment = () => {
   }, [navigate]);
 
   const handlePayment = () => {
-    // Navigate to order confirmed page
-    navigate('/order-confirmed');
+    // Open Stripe payment link in the same tab
+    window.location.href = 'https://buy.stripe.com/test_eVq00i2NCdkafqZ4pB1oI00';
   };
 
   return (
