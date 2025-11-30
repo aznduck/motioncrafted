@@ -161,7 +161,7 @@ const Checkout = () => {
                   className="w-full mt-8"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Processing..." : "Complete Payment"}
+                  {isSubmitting ? "Processing..." : "Continue to Payment"}
                 </Button>
               </form>
             </CardContent>
