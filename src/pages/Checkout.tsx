@@ -58,9 +58,9 @@ const Checkout = () => {
   const onSubmit = async (data: CheckoutFormData) => {
     setIsSubmitting(true);
     console.log("Checkout form submitted:", data);
-    // Redirect to Stripe payment link with locked quantity parameter
+    // Redirect to Stripe payment link with locked quantity parameter and order ID
     const stripeLink = 'https://buy.stripe.com/live_xxx123';
-    window.location.href = `${stripeLink}?quantity=${photoCount}`;
+    window.location.href = `${stripeLink}?quantity=${photoCount}&orderId=${orderId}`;
   };
 
   return (
