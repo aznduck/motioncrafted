@@ -16,6 +16,15 @@ const Upload = () => {
   const rollInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
 
+  // Generate and store unique Order ID on first visit
+  useEffect(() => {
+    const existingOrderId = localStorage.getItem("mc_orderId");
+    if (!existingOrderId) {
+      const newOrderId = `MC-${Date.now()}`;
+      localStorage.setItem("mc_orderId", newOrderId);
+    }
+  }, []);
+
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js";
