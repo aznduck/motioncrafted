@@ -33,7 +33,7 @@ serve(async (req) => {
     // Validate photoCount
     if (!photoCount || photoCount < 5) {
       return new Response(
-        JSON.stringify({ error: 'photoCount must be at least 5' }),
+        JSON.stringify({ error: 'Minimum 5 photos required' }),
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -44,7 +44,7 @@ serve(async (req) => {
     // Validate mc_orderId
     if (!mc_orderId) {
       return new Response(
-        JSON.stringify({ error: 'mc_orderId is required' }),
+        JSON.stringify({ error: 'Missing mc_orderId' }),
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -95,7 +95,7 @@ serve(async (req) => {
   } catch (err) {
     console.error('Error creating Stripe checkout session:', err);
     return new Response(
-      JSON.stringify({ error: 'Failed to create checkout session' }),
+      JSON.stringify({ error: 'Failed to create Stripe session' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
