@@ -62,6 +62,8 @@ const Upload = () => {
 
           try {
             if ((window as any).uploadcare) {
+              const orderId = localStorage.getItem('mc_orderId');
+              
               const uploadedFile = (window as any).uploadcare.fileFrom(
                 "object",
                 file,
@@ -69,6 +71,11 @@ const Upload = () => {
               );
 
               uploadedFile.done((fileInfo: any) => {
+                // Set metadata with Order ID
+                if (orderId) {
+                  fileInfo.setMetadata('orderId', orderId);
+                }
+                
                 // Replace loading placeholder with actual image
                 setUploadedPhotos((prev) =>
                   prev.map((photo) =>
