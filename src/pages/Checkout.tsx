@@ -23,6 +23,7 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>;
 const Checkout = () => {
   const navigate = useNavigate();
   const [photoCount, setPhotoCount] = useState<number>(0);
+  const [orderId, setOrderId] = useState<string>('');
   const pricePerPhoto = 6;
   const totalPrice = photoCount * pricePerPhoto;
 
@@ -36,6 +37,12 @@ const Checkout = () => {
     }
     
     setPhotoCount(count);
+    
+    // Read Order ID from localStorage
+    const storedOrderId = localStorage.getItem('mc_orderId');
+    if (storedOrderId) {
+      setOrderId(storedOrderId);
+    }
   }, [navigate]);
 
   const {
@@ -67,6 +74,11 @@ const Checkout = () => {
             <h1 className="text-3xl md:text-4xl font-display text-foreground mb-2">
               Step 2 – Review & Complete Your Order
             </h1>
+            {orderId && (
+              <p className="text-xs text-muted-foreground/60 mt-2">
+                Order ID: {orderId}
+              </p>
+            )}
           </div>
 
           {/* Order Summary Card */}
