@@ -53,14 +53,6 @@ const Checkout = () => {
     resolver: zodResolver(checkoutSchema),
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const onSubmit = async (data: CheckoutFormData) => {
-    setIsSubmitting(true);
-    console.log("Checkout form submitted:", data);
-    // Redirect to Stripe payment link
-    window.location.href = 'https://buy.stripe.com/6oU14m9iT3xT4IH33tfMA00';
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -97,7 +89,7 @@ const Checkout = () => {
           {/* Checkout Form */}
           <Card className="border-2 shadow-soft">
             <CardContent className="pt-6">
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <div className="space-y-6">
                 {/* Full Name */}
                 <div className="space-y-2">
                   <Label htmlFor="fullName" className="text-foreground">
@@ -165,17 +157,18 @@ const Checkout = () => {
                   )}
                 </div>
 
-                {/* Submit Button */}
+                {/* Payment Link Button */}
                 <Button
-                  type="submit"
+                  asChild
                   size="xl"
                   variant="hero"
                   className="w-full mt-8"
-                  disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Processing..." : "Continue to Payment"}
+                  <a href="https://buy.stripe.com/6oU14m9iT3xT4IH33tfMA00">
+                    Continue to Payment
+                  </a>
                 </Button>
-              </form>
+              </div>
             </CardContent>
           </Card>
         </div>
