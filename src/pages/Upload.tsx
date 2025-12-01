@@ -16,14 +16,16 @@ const Upload = () => {
   const rollInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
 
-  // Generate and store unique Order ID on first visit
-  useEffect(() => {
+  // Generate and store unique Order ID once on mount
+  const [mcOrderId] = useState(() => {
     const existingOrderId = localStorage.getItem("mc_orderId");
-    if (!existingOrderId) {
-      const newOrderId = `MC-${Date.now()}`;
-      localStorage.setItem("mc_orderId", newOrderId);
+    if (existingOrderId) {
+      return existingOrderId;
     }
-  }, []);
+    const newOrderId = `MC-${Date.now()}`;
+    localStorage.setItem("mc_orderId", newOrderId);
+    return newOrderId;
+  });
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -62,8 +64,6 @@ const Upload = () => {
 
           try {
             if ((window as any).uploadcare) {
-              const orderId = localStorage.getItem('mc_orderId');
-              
               const uploadedFile = (window as any).uploadcare.fileFrom(
                 "object",
                 file,
@@ -72,9 +72,7 @@ const Upload = () => {
 
               uploadedFile.done((fileInfo: any) => {
                 // Set metadata with Order ID
-                if (orderId) {
-                  fileInfo.setMetadata('orderId', orderId);
-                }
+                fileInfo.setMetadata('orderId', mcOrderId);
                 
                 // Replace loading placeholder with actual image
                 setUploadedPhotos((prev) =>
