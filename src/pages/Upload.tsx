@@ -16,16 +16,15 @@ const Upload = () => {
   const rollInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
 
-  // Generate and store unique Order ID once on mount
-  const [mcOrderId] = useState(() => {
-    const existingOrderId = localStorage.getItem("mc_orderId");
-    if (existingOrderId) {
-      return existingOrderId;
+  // Generate unique Order ID once on mount
+  const [mcOrderId] = useState(() => `MC-${Date.now()}`);
+
+  // Store Order ID in localStorage for other pages
+  useEffect(() => {
+    if (mcOrderId) {
+      localStorage.setItem("mc_orderId", mcOrderId);
     }
-    const newOrderId = `MC-${Date.now()}`;
-    localStorage.setItem("mc_orderId", newOrderId);
-    return newOrderId;
-  });
+  }, [mcOrderId]);
 
   useEffect(() => {
     const script = document.createElement("script");
