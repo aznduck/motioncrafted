@@ -90,9 +90,6 @@ const Checkout = () => {
                 <p className="text-lg">
                   You added <span className="font-semibold text-foreground">{photoCount}</span> photo{photoCount !== 1 ? 's' : ''}
                 </p>
-                <p className="text-lg">
-                  Total price: <span className="font-semibold text-foreground">${pricePerPhoto} × {photoCount} = ${totalPrice}</span>
-                </p>
               </div>
             </CardContent>
           </Card>
