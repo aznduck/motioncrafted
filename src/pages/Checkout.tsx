@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { supabase } from "@/integrations/supabase/client";
 
 const checkoutSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required").max(100, "Name must be less than 100 characters"),
@@ -24,6 +25,7 @@ const Checkout = () => {
   const navigate = useNavigate();
   const [photoCount, setPhotoCount] = useState<number>(0);
   const [orderId, setOrderId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const pricePerPhoto = 6;
   const totalPrice = photoCount * pricePerPhoto;
 
@@ -53,6 +55,35 @@ const Checkout = () => {
     resolver: zodResolver(checkoutSchema),
   });
 
+  const handleCheckout = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: { 
+          photoCount, 
+          mc_orderId: orderId 
+        }
+      });
+
+      if (error) {
+        console.error('Error creating checkout session:', error);
+        alert('Something went wrong starting your payment. Please try again.');
+        return;
+      }
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        console.error('No URL returned from checkout session');
+        alert('Something went wrong starting your payment. Please try again.');
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      alert('Something went wrong starting your payment. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -157,16 +188,15 @@ const Checkout = () => {
                   )}
                 </div>
 
-                {/* Payment Link Button */}
+                {/* Payment Button */}
                 <Button
-                  asChild
                   size="xl"
                   variant="hero"
                   className="w-full mt-8"
+                  onClick={handleCheckout}
+                  disabled={photoCount < 5 || isLoading}
                 >
-                  <a href="https://buy.stripe.com/6oU14m9iT3xT4IH33tfMA00">
-                    Continue to Payment
-                  </a>
+                  {isLoading ? "Processing..." : "Continue to Payment"}
                 </Button>
               </div>
             </CardContent>
