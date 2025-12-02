@@ -33,7 +33,7 @@ const Checkout = () => {
     const storedCount = localStorage.getItem('mc_photoCount');
     const count = storedCount ? parseInt(storedCount, 10) : 0;
     
-    if (!storedCount || count < 5) {
+    if (!storedCount || count < 1) {
       navigate('/upload');
       return;
     }
@@ -194,7 +194,7 @@ const Checkout = () => {
                   variant="hero"
                   className="w-full mt-8"
                   onClick={handleCheckout}
-                  disabled={photoCount < 5 || isLoading}
+                  disabled={photoCount < 1 || isLoading}
                 >
                   {isLoading ? "Processing..." : "Continue to Payment"}
                 </Button>
