@@ -2,11 +2,16 @@ import { useEffect, useState, useRef } from "react";
 import { Camera, Image, FolderOpen, Plus, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CropModal from "@/components/CropModal";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UploadedPhoto {
   id: string;
   url: string;
   loading?: boolean;
+  category?: string | null;
+  peopleCount?: number | null;
+  hasAnimal?: boolean;
+  hasBaby?: boolean;
 }
 
 const Upload = () => {
@@ -119,18 +124,67 @@ const Upload = () => {
           { publicKey: "31b0edbe0c35c307eaa8" }
         );
 
-        uploadedFile.done((fileInfo: any) => {
+        uploadedFile.done(async (fileInfo: any) => {
           // Set metadata with Order ID
           fileInfo.setMetadata('orderId', mcOrderId);
           
-          // Replace loading placeholder with actual image
+          // Call classify-photo edge function
+          let classification = {
+            category: null as string | null,
+            peopleCount: null as number | null,
+            hasAnimal: false,
+            hasBaby: false,
+          };
+          
+          try {
+            const { data, error } = await supabase.functions.invoke('classify-photo', {
+              body: { photoUrl: fileInfo.cdnUrl },
+            });
+            
+            if (error) {
+              console.error('Classification error:', error);
+            } else if (data) {
+              classification = {
+                category: data.category ?? null,
+                peopleCount: data.peopleCount ?? null,
+                hasAnimal: data.hasAnimal ?? false,
+                hasBaby: data.hasBaby ?? false,
+              };
+              console.log('Photo classified:', classification);
+            }
+          } catch (err) {
+            console.error('Failed to classify photo:', err);
+          }
+          
+          // Replace loading placeholder with actual image + classification
           setUploadedPhotos((prev) =>
             prev.map((photo) =>
               photo.id === tempId
-                ? { id: fileInfo.uuid, url: fileInfo.cdnUrl, loading: false }
+                ? {
+                    id: fileInfo.uuid,
+                    url: fileInfo.cdnUrl,
+                    loading: false,
+                    category: classification.category,
+                    peopleCount: classification.peopleCount,
+                    hasAnimal: classification.hasAnimal,
+                    hasBaby: classification.hasBaby,
+                  }
                 : photo
             )
           );
+          
+          // Store classification in localStorage
+          const existingRaw = localStorage.getItem("mc_photoClassifications");
+          const existing = existingRaw ? JSON.parse(existingRaw) : [];
+          existing.push({
+            id: fileInfo.uuid,
+            url: fileInfo.cdnUrl,
+            category: classification.category,
+            peopleCount: classification.peopleCount,
+            hasAnimal: classification.hasAnimal,
+            hasBaby: classification.hasBaby,
+          });
+          localStorage.setItem("mc_photoClassifications", JSON.stringify(existing));
         });
 
         uploadedFile.fail(() => {
