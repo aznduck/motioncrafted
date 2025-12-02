@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
-import Cropper, { Area, Point } from "react-easy-crop";
+import { useState, useRef, useCallback } from "react";
+import ReactCrop, { Crop, PixelCrop } from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 import { Button } from "@/components/ui/button";
-import { X, Check, RotateCw } from "lucide-react";
+import { X, Check } from "lucide-react";
 
 interface CropModalProps {
   imageUrl: string;
@@ -9,18 +10,11 @@ interface CropModalProps {
   onCancel: () => void;
 }
 
-// Helper function to create cropped image
-const createCroppedImage = async (
-  imageSrc: string,
-  pixelCrop: Area
+// Helper function to create cropped image from pixel crop
+const createCroppedImage = (
+  image: HTMLImageElement,
+  crop: PixelCrop
 ): Promise<Blob> => {
-  const image = new Image();
-  image.src = imageSrc;
-  
-  await new Promise((resolve) => {
-    image.onload = resolve;
-  });
-
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
 
@@ -28,19 +22,21 @@ const createCroppedImage = async (
     throw new Error("Could not get canvas context");
   }
 
-  canvas.width = pixelCrop.width;
-  canvas.height = pixelCrop.height;
+  // Set canvas size to crop size
+  canvas.width = crop.width;
+  canvas.height = crop.height;
 
+  // Draw cropped image
   ctx.drawImage(
     image,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
+    crop.x,
+    crop.y,
+    crop.width,
+    crop.height,
     0,
     0,
-    pixelCrop.width,
-    pixelCrop.height
+    crop.width,
+    crop.height
   );
 
   return new Promise((resolve, reject) => {
@@ -59,35 +55,51 @@ const createCroppedImage = async (
 };
 
 const CropModal = ({ imageUrl, onConfirm, onCancel }: CropModalProps) => {
-  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const [isProcessing, setIsProcessing] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
 
-  const onCropComplete = useCallback(
-    (_croppedArea: Area, croppedAreaPixels: Area) => {
-      setCroppedAreaPixels(croppedAreaPixels);
-    },
-    []
-  );
+  // When image loads, set initial crop to cover most of the image
+  const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { width, height } = e.currentTarget;
+    
+    // Initial crop: 80% of image, centered
+    const cropWidth = width * 0.8;
+    const cropHeight = height * 0.8;
+    const x = (width - cropWidth) / 2;
+    const y = (height - cropHeight) / 2;
+
+    const initialCrop: Crop = {
+      unit: "px",
+      x,
+      y,
+      width: cropWidth,
+      height: cropHeight,
+    };
+
+    setCrop(initialCrop);
+    setCompletedCrop({
+      unit: "px",
+      x,
+      y,
+      width: cropWidth,
+      height: cropHeight,
+    });
+  }, []);
 
   const handleConfirm = async () => {
-    if (!croppedAreaPixels) return;
+    if (!completedCrop || !imgRef.current) return;
     
     setIsProcessing(true);
     try {
-      const croppedBlob = await createCroppedImage(imageUrl, croppedAreaPixels);
+      const croppedBlob = await createCroppedImage(imgRef.current, completedCrop);
       onConfirm(croppedBlob);
     } catch (error) {
       console.error("Error cropping image:", error);
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  const handleRotate = () => {
-    setRotation((prev) => (prev + 90) % 360);
   };
 
   return (
@@ -99,7 +111,7 @@ const CropModal = ({ imageUrl, onConfirm, onCancel }: CropModalProps) => {
       />
       
       {/* Modal */}
-      <div className="relative z-10 w-full max-w-2xl mx-4 bg-card rounded-xl shadow-premium border-2 border-border overflow-hidden">
+      <div className="relative z-10 w-full max-w-3xl mx-4 bg-card rounded-xl shadow-premium border-2 border-border overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-display text-foreground">Crop Your Photo</h2>
@@ -113,74 +125,54 @@ const CropModal = ({ imageUrl, onConfirm, onCancel }: CropModalProps) => {
         </div>
 
         {/* Crop Area */}
-        <div className="relative h-[50vh] min-h-[300px] bg-muted">
-          <Cropper
-            image={imageUrl}
+        <div className="p-4 bg-muted/50 flex items-center justify-center max-h-[60vh] overflow-auto">
+          <ReactCrop
             crop={crop}
-            zoom={zoom}
-            rotation={rotation}
-            aspect={1}
-            onCropChange={setCrop}
-            onCropComplete={onCropComplete}
-            onZoomChange={setZoom}
-            showGrid={true}
-            style={{
-              containerStyle: {
-                backgroundColor: "hsl(var(--muted))",
-              },
-            }}
-          />
+            onChange={(c) => setCrop(c)}
+            onComplete={(c) => setCompletedCrop(c)}
+            className="max-w-full"
+          >
+            <img
+              ref={imgRef}
+              src={imageUrl}
+              alt="Crop preview"
+              onLoad={onImageLoad}
+              className="max-w-full max-h-[55vh] object-contain"
+              crossOrigin="anonymous"
+            />
+          </ReactCrop>
         </div>
 
-        {/* Controls */}
-        <div className="p-4 space-y-4 border-t border-border">
-          {/* Zoom Slider */}
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground w-12">Zoom</span>
-            <input
-              type="range"
-              min={1}
-              max={3}
-              step={0.1}
-              value={zoom}
-              onChange={(e) => setZoom(Number(e.target.value))}
-              className="flex-1 h-2 rounded-full bg-muted appearance-none cursor-pointer accent-primary"
-            />
-            <button
-              onClick={handleRotate}
-              className="p-2 rounded-lg border border-border hover:bg-muted transition-smooth"
-              aria-label="Rotate"
-            >
-              <RotateCw className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </div>
+        {/* Instructions */}
+        <div className="px-4 py-2 text-center text-sm text-muted-foreground border-t border-border">
+          Drag to move • Drag corners or edges to resize
+        </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={onCancel}
-              disabled={isProcessing}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="hero"
-              className="flex-1"
-              onClick={handleConfirm}
-              disabled={isProcessing || !croppedAreaPixels}
-            >
-              {isProcessing ? (
-                "Processing..."
-              ) : (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  Confirm Crop
-                </>
-              )}
-            </Button>
-          </div>
+        {/* Action Buttons */}
+        <div className="flex gap-3 p-4 border-t border-border">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={onCancel}
+            disabled={isProcessing}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="hero"
+            className="flex-1"
+            onClick={handleConfirm}
+            disabled={isProcessing || !completedCrop}
+          >
+            {isProcessing ? (
+              "Processing..."
+            ) : (
+              <>
+                <Check className="h-4 w-4 mr-2" />
+                Confirm Crop
+              </>
+            )}
+          </Button>
         </div>
       </div>
     </div>
