@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Camera, Image, FolderOpen, Plus, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Skeleton } from "@/components/ui/skeleton";
+import CropModal from "@/components/CropModal";
 
 interface UploadedPhoto {
   id: string;
@@ -12,6 +12,8 @@ interface UploadedPhoto {
 const Upload = () => {
   const navigate = useNavigate();
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
+  const [pendingFileForCrop, setPendingFileForCrop] = useState<string | null>(null);
+  const [pendingFileName, setPendingFileName] = useState<string>("");
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const rollInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
@@ -43,63 +45,22 @@ const Upload = () => {
     };
   }, []);
 
-  const setupUploader = (fileInput: HTMLInputElement) => {
-    const handleChange = async (e: Event) => {
+  // Handle file selection - intercept for cropping
+  const handleFileSelect = (file: File) => {
+    const objectUrl = URL.createObjectURL(file);
+    setPendingFileForCrop(objectUrl);
+    setPendingFileName(file.name);
+  };
+
+  // Setup file input handlers
+  const setupFileInput = (fileInput: HTMLInputElement) => {
+    const handleChange = (e: Event) => {
       const target = e.target as HTMLInputElement;
       const files = target.files;
 
       if (files && files.length > 0) {
-        // Process all selected files
-        Array.from(files).forEach((file) => {
-          const tempId = Date.now().toString() + Math.random();
-          
-          // Immediately add loading placeholder
-          const loadingPhoto: UploadedPhoto = {
-            id: tempId,
-            url: "",
-            loading: true,
-          };
-          setUploadedPhotos((prev) => [...prev, loadingPhoto]);
-
-          try {
-            if ((window as any).uploadcare) {
-              const uploadedFile = (window as any).uploadcare.fileFrom(
-                "object",
-                file,
-                { publicKey: "31b0edbe0c35c307eaa8" }
-              );
-
-              uploadedFile.done((fileInfo: any) => {
-                // Set metadata with Order ID
-                fileInfo.setMetadata('orderId', mcOrderId);
-                
-                // Replace loading placeholder with actual image
-                setUploadedPhotos((prev) =>
-                  prev.map((photo) =>
-                    photo.id === tempId
-                      ? { id: fileInfo.uuid, url: fileInfo.cdnUrl, loading: false }
-                      : photo
-                  )
-                );
-              });
-            } else {
-              const localUrl = URL.createObjectURL(file);
-              // Replace loading placeholder with actual image
-              setUploadedPhotos((prev) =>
-                prev.map((photo) =>
-                  photo.id === tempId
-                    ? { id: tempId, url: localUrl, loading: false }
-                    : photo
-                )
-              );
-            }
-          } catch (error) {
-            console.error("Upload error:", error);
-            // Remove loading placeholder on error
-            setUploadedPhotos((prev) => prev.filter((photo) => photo.id !== tempId));
-          }
-        });
-
+        // Only process first file - open crop modal
+        handleFileSelect(files[0]);
         target.value = "";
       }
     };
@@ -110,21 +71,97 @@ const Upload = () => {
 
   useEffect(() => {
     if (cameraInputRef.current) {
-      return setupUploader(cameraInputRef.current);
+      return setupFileInput(cameraInputRef.current);
     }
   }, []);
 
   useEffect(() => {
     if (rollInputRef.current) {
-      return setupUploader(rollInputRef.current);
+      return setupFileInput(rollInputRef.current);
     }
   }, []);
 
   useEffect(() => {
     if (filesInputRef.current) {
-      return setupUploader(filesInputRef.current);
+      return setupFileInput(filesInputRef.current);
     }
   }, []);
+
+  // Upload cropped image to Uploadcare
+  const uploadCroppedImage = async (croppedBlob: Blob) => {
+    const tempId = Date.now().toString() + Math.random();
+    
+    // Add loading placeholder
+    const loadingPhoto: UploadedPhoto = {
+      id: tempId,
+      url: "",
+      loading: true,
+    };
+    setUploadedPhotos((prev) => [...prev, loadingPhoto]);
+
+    // Clear the crop modal
+    if (pendingFileForCrop) {
+      URL.revokeObjectURL(pendingFileForCrop);
+    }
+    setPendingFileForCrop(null);
+    setPendingFileName("");
+
+    try {
+      // Create a File from the cropped Blob
+      const croppedFile = new File([croppedBlob], pendingFileName || "cropped-image.jpg", {
+        type: "image/jpeg",
+      });
+
+      if ((window as any).uploadcare) {
+        const uploadedFile = (window as any).uploadcare.fileFrom(
+          "object",
+          croppedFile,
+          { publicKey: "31b0edbe0c35c307eaa8" }
+        );
+
+        uploadedFile.done((fileInfo: any) => {
+          // Set metadata with Order ID
+          fileInfo.setMetadata('orderId', mcOrderId);
+          
+          // Replace loading placeholder with actual image
+          setUploadedPhotos((prev) =>
+            prev.map((photo) =>
+              photo.id === tempId
+                ? { id: fileInfo.uuid, url: fileInfo.cdnUrl, loading: false }
+                : photo
+            )
+          );
+        });
+
+        uploadedFile.fail(() => {
+          // Remove loading placeholder on error
+          setUploadedPhotos((prev) => prev.filter((photo) => photo.id !== tempId));
+        });
+      } else {
+        // Fallback to local URL if Uploadcare not loaded
+        const localUrl = URL.createObjectURL(croppedBlob);
+        setUploadedPhotos((prev) =>
+          prev.map((photo) =>
+            photo.id === tempId
+              ? { id: tempId, url: localUrl, loading: false }
+              : photo
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      setUploadedPhotos((prev) => prev.filter((photo) => photo.id !== tempId));
+    }
+  };
+
+  // Cancel crop
+  const handleCropCancel = () => {
+    if (pendingFileForCrop) {
+      URL.revokeObjectURL(pendingFileForCrop);
+    }
+    setPendingFileForCrop(null);
+    setPendingFileName("");
+  };
 
   const triggerCamera = () => {
     cameraInputRef.current?.click();
@@ -269,16 +306,23 @@ const Upload = () => {
         ref={rollInputRef}
         type="file"
         accept="image/*"
-        multiple
         className="hidden"
       />
       <input
         ref={filesInputRef}
         type="file"
         accept="image/*"
-        multiple
         className="hidden"
       />
+
+      {/* Crop Modal */}
+      {pendingFileForCrop && (
+        <CropModal
+          imageUrl={pendingFileForCrop}
+          onConfirm={uploadCroppedImage}
+          onCancel={handleCropCancel}
+        />
+      )}
     </div>
   );
 };
