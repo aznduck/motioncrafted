@@ -207,9 +207,9 @@ const Upload = () => {
             <p className="text-lg font-semibold text-foreground">
               Photos added: {uploadedPhotos.length}
             </p>
-            {uploadedPhotos.length < 1 && (
+            {uploadedPhotos.length < 5 && (
               <p className="text-sm text-destructive mt-1">
-                Add at least 1 photo to continue.
+                Add at least 5 photos to continue.
               </p>
             )}
           </div>
@@ -248,7 +248,7 @@ const Upload = () => {
           <div className="pt-6 flex justify-center">
             <button
               onClick={handleContinue}
-              disabled={uploadedPhotos.length < 1}
+              disabled={uploadedPhotos.length < 5}
               className="px-10 py-4 rounded-lg bg-primary text-primary-foreground font-semibold text-lg shadow-premium hover:shadow-soft hover:bg-primary/90 transition-smooth disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary disabled:hover:shadow-premium"
             >
               Continue
