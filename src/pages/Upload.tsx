@@ -309,27 +309,39 @@ const Upload = () => {
           {uploadedPhotos.length > 0 && (
             <div className="grid grid-cols-3 gap-3 max-w-2xl mx-auto">
               {uploadedPhotos.map((photo) => (
-                <div key={photo.id} className="relative aspect-square rounded-lg overflow-hidden border-2 border-border shadow-soft">
-                  {photo.loading ? (
-                    <div className="w-full h-full flex items-center justify-center bg-muted">
-                      <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                    </div>
-                  ) : (
-                    <>
-                      <img
-                        src={photo.url}
-                        alt="Uploaded photo"
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        onClick={() => handleDeletePhoto(photo.id)}
-                        className="absolute top-1 right-1 bg-background/90 hover:bg-destructive hover:text-destructive-foreground rounded-full p-1 transition-smooth shadow-soft"
-                        aria-label="Delete photo"
-                      >
-                        <Plus className="h-4 w-4 rotate-45" />
-                      </button>
-                    </>
-                  )}
+                <div key={photo.id} className="flex flex-col gap-1">
+                  <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-border shadow-soft">
+                    {photo.loading ? (
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
+                        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                      </div>
+                    ) : (
+                      <>
+                        <img
+                          src={photo.url}
+                          alt="Uploaded photo"
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          onClick={() => handleDeletePhoto(photo.id)}
+                          className="absolute top-1 right-1 bg-background/90 hover:bg-destructive hover:text-destructive-foreground rounded-full p-1 transition-smooth shadow-soft"
+                          aria-label="Delete photo"
+                        >
+                          <Plus className="h-4 w-4 rotate-45" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {/* Classification label */}
+                  <p className="text-[10px] text-muted-foreground leading-tight text-center truncate">
+                    {photo.loading ? (
+                      "Uploading..."
+                    ) : photo.category ? (
+                      `${photo.category} • ${photo.peopleCount ?? 0}p • ${photo.hasAnimal ? "🐾" : ""} ${photo.hasBaby ? "👶" : ""}`
+                    ) : (
+                      "Classifying..."
+                    )}
+                  </p>
                 </div>
               ))}
             </div>
