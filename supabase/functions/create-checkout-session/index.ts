@@ -31,9 +31,9 @@ serve(async (req) => {
     const { photoCount, mc_orderId } = await req.json();
 
     // Validate photoCount
-    if (!photoCount || photoCount < 5) {
+    if (!photoCount || photoCount < 1) {
       return new Response(
-        JSON.stringify({ error: 'Minimum 5 photos required' }),
+        JSON.stringify({ error: 'At least 1 photo required' }),
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
