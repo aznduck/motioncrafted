@@ -156,22 +156,28 @@ const Upload = () => {
             console.error('Failed to classify photo:', err);
           }
           
+          const newPhoto = {
+            id: fileInfo.uuid,
+            url: fileInfo.cdnUrl,
+            loading: false,
+            category: classification.category,
+            peopleCount: classification.peopleCount,
+            hasAnimal: classification.hasAnimal,
+            hasBaby: classification.hasBaby,
+          };
+          
           // Replace loading placeholder with actual image + classification
-          setUploadedPhotos((prev) =>
-            prev.map((photo) =>
-              photo.id === tempId
-                ? {
-                    id: fileInfo.uuid,
-                    url: fileInfo.cdnUrl,
-                    loading: false,
-                    category: classification.category,
-                    peopleCount: classification.peopleCount,
-                    hasAnimal: classification.hasAnimal,
-                    hasBaby: classification.hasBaby,
-                  }
-                : photo
-            )
-          );
+          setUploadedPhotos((prev) => {
+            const updated = prev.map((photo) =>
+              photo.id === tempId ? newPhoto : photo
+            );
+            // Persist photos to localStorage for animations page
+            const photosForStorage = updated
+              .filter((p) => !p.loading)
+              .map((p) => ({ id: p.id, url: p.url }));
+            localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
+            return updated;
+          });
           
           // Store classification in localStorage
           const existingRaw = localStorage.getItem("mc_photoClassifications");
@@ -236,7 +242,12 @@ const Upload = () => {
   const handleContinue = () => {
     const count = uploadedPhotos.length;
     localStorage.setItem('mc_photoCount', String(count));
-    navigate('/checkout');
+    // Ensure photos are saved before navigating
+    const photosForStorage = uploadedPhotos
+      .filter((p) => !p.loading)
+      .map((p) => ({ id: p.id, url: p.url }));
+    localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
+    navigate('/animations');
   };
 
   return (
