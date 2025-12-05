@@ -1,4 +1,4 @@
-import { Mail } from "lucide-react";
+import { Mail, Heart } from "lucide-react";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -10,6 +10,11 @@ const Footer = () => {
           <div className="font-elegant text-xl font-semibold tracking-tight text-foreground">
             Motion Crafted
           </div>
+          
+          <p className="text-muted-foreground italic flex items-center gap-2">
+            A gift from the heart, crafted with care.
+            <Heart className="w-4 h-4 text-primary fill-primary" />
+          </p>
           
           <div className="flex items-center gap-2 text-muted-foreground">
             <Mail className="w-5 h-5" />
