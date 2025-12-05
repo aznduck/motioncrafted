@@ -1,70 +1,65 @@
-import { Sparkles, Gift, Clock, UserCheck, Heart, Zap } from "lucide-react";
+import { Heart, Sparkles, Play, Music, MessageSquareHeart, Palette } from "lucide-react";
 
 const benefits = [
   {
-    icon: Sparkles,
-    title: "High-quality, handcrafted animations",
-    description: "Every frame is carefully crafted by our expert team",
-  },
-  {
-    icon: Gift,
-    title: "Perfect for gifts, memorials, and celebrations",
-    description: "Create lasting memories for any special occasion",
-  },
-  {
-    icon: Clock,
-    title: "Fast 48-hour delivery",
-    description: "Get your beautiful video back quickly",
-  },
-  {
-    icon: UserCheck,
-    title: "Done-for-you professional service",
-    description: "Sit back while we handle all the details",
+    icon: Palette,
+    title: "Handcrafted With Care",
+    description: "Each video is thoughtfully refined — ensuring your memories look beautiful, natural, and emotionally meaningful. We combine advanced tools with a creator's touch to deliver quality you can feel.",
   },
   {
     icon: Heart,
-    title: "Emotional, meaningful final results",
-    description: "Videos that capture the heart of your memories",
+    title: "Emotional Storytelling",
+    description: "We artfully sequence your photos to build a beginning, a middle, and a powerful ending that lands with emotion.",
   },
   {
-    icon: Zap,
-    title: "Zero technical skills required",
-    description: "Simply upload your photos and we do the rest",
+    icon: Play,
+    title: "Soft, Gentle Motion",
+    description: "No uncanny deepfake effects — just subtle, tasteful movement that enhances the memory without changing it.",
+  },
+  {
+    icon: Music,
+    title: "Meaningful Music",
+    description: "We pair your photos with a warm, sentimental soundtrack that sets the emotional tone.",
+  },
+  {
+    icon: MessageSquareHeart,
+    title: "A Personal Touch",
+    description: "Add a custom message at the end — the perfect final moment that often brings people to tears.",
   },
 ];
 
 const WhyChooseUs = () => {
   return (
-    <section className="py-16 md:py-24 bg-muted/30">
+    <section className="py-16 md:py-24 bg-background">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-6">
+            <Sparkles className="w-6 h-6 text-primary" />
+          </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-foreground mb-4">
-            Why Choose Us
+            Why Motion Crafted Is Different
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            We're dedicated to preserving your precious memories with care and artistry
-          </p>
         </div>
         
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10 max-w-6xl mx-auto">
           {benefits.map((benefit, index) => (
             <div 
               key={index}
-              className="flex gap-4 animate-fade-in"
+              className="group p-6 rounded-2xl bg-muted/30 hover:bg-muted/50 transition-smooth animate-fade-in"
               style={{ animationDelay: `${index * 0.05}s` }}
             >
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="flex flex-col items-start space-y-4">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-smooth">
                   <benefit.icon className="w-6 h-6 text-primary" />
                 </div>
-              </div>
-              <div>
-                <h3 className="text-lg font-display font-semibold text-foreground mb-2">
-                  {benefit.title}
-                </h3>
-                <p className="text-muted-foreground text-sm">
-                  {benefit.description}
-                </p>
+                <div>
+                  <h3 className="text-xl font-display font-semibold text-foreground mb-2">
+                    {benefit.title}
+                  </h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    {benefit.description}
+                  </p>
+                </div>
               </div>
             </div>
           ))}

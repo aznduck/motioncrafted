@@ -1,5 +1,6 @@
 import heroImage from "@/assets/hero-photos.jpg";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const Hero = () => {
   const navigate = useNavigate();
@@ -14,18 +15,30 @@ const Hero = () => {
         <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
           <div className="text-center lg:text-left space-y-4 md:space-y-6 lg:space-y-8 animate-fade-in">
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold leading-tight text-foreground">
-              Bring Your Photos to Life
+              Give a Gift They'll Remember Forever
             </h1>
-            <p className="text-lg sm:text-xl md:text-2xl font-normal max-w-2xl mx-auto lg:mx-0" style={{ color: 'hsl(var(--hero-subtext))' }}>
-              Premium handcrafted animations from your most cherished memories.
+            <p className="text-lg sm:text-xl md:text-2xl font-normal max-w-2xl mx-auto lg:mx-0 leading-relaxed" style={{ color: 'hsl(var(--hero-subtext))' }}>
+              We turn your most cherished family photos into a beautiful, emotional video — crafted with gentle motion, music, and a heartfelt message.
             </p>
-            <div className="pt-2 md:pt-4">
-              <button 
+            <p className="text-base sm:text-lg italic text-muted-foreground max-w-xl mx-auto lg:mx-0">
+              Designed to make your loved one tear up the moment they watch it.
+            </p>
+            <div className="pt-2 md:pt-4 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <Button 
                 onClick={handleUploadClick}
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-semibold ring-offset-background transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 shadow-premium hover:scale-105 w-full sm:w-auto min-w-[280px] h-16 md:h-14 px-12 md:px-10 text-lg md:text-base cursor-pointer"
+                variant="hero"
+                size="xl"
+                className="w-full sm:w-auto min-w-[280px]"
               >
-                Upload Your Photos
-              </button>
+                Create a Motion Crafted Gift
+              </Button>
+              <Button 
+                variant="outline"
+                size="xl"
+                className="w-full sm:w-auto"
+              >
+                See Examples
+              </Button>
             </div>
           </div>
           

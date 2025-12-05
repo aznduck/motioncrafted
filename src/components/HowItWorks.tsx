@@ -1,20 +1,23 @@
-import { Upload, Package, Video } from "lucide-react";
+import { Upload, Sparkles, Gift } from "lucide-react";
 
 const steps = [
   {
     icon: Upload,
-    title: "Upload your photos",
-    description: "Share your cherished memories with us securely",
+    number: "1",
+    title: "Upload Your Photos",
+    description: "Choose your favorite memories — old prints, scanned images, or phone photos.",
   },
   {
-    icon: Package,
-    title: "Choose your package",
-    description: "Select the perfect plan for your needs",
+    icon: Sparkles,
+    number: "2",
+    title: "We Handcraft the Video",
+    description: "We animate each photo, fix imperfections, and craft a moving story.",
   },
   {
-    icon: Video,
-    title: "Receive your video",
-    description: "Get a cinematic animated video in 48 hours",
+    icon: Gift,
+    number: "3",
+    title: "Receive Your Finished Keepsake",
+    description: "Delivered digitally within 48 hours. Ready to gift, save, or share with your family.",
   },
 ];
 
@@ -27,7 +30,7 @@ const HowItWorks = () => {
             How It Works
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Three simple steps to transform your memories into cinematic art
+            Three simple steps to transform your memories into a cinematic keepsake
           </p>
         </div>
         
@@ -38,14 +41,20 @@ const HowItWorks = () => {
               className="text-center space-y-4 animate-fade-in"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <div className="mx-auto w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-                <step.icon className="w-10 h-10 text-primary" />
+              <div className="relative mx-auto w-24 h-24">
+                <div className="absolute inset-0 rounded-full bg-primary/10"></div>
+                <div className="absolute inset-2 rounded-full bg-primary/5 flex items-center justify-center">
+                  <step.icon className="w-10 h-10 text-primary" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
+                  {step.number}
+                </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 pt-2">
                 <h3 className="text-xl sm:text-2xl font-display font-semibold text-foreground">
                   {step.title}
                 </h3>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground leading-relaxed">
                   {step.description}
                 </p>
               </div>
