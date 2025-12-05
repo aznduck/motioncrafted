@@ -314,6 +314,13 @@ const Upload = () => {
   const handleContinue = () => {
     const validPhotos = uploadedPhotos.filter((p) => !p.loading);
     const count = validPhotos.length;
+    
+    // Guard: don't navigate if fewer than 5 fully-uploaded photos
+    if (count < 5) {
+      alert("Please wait until all photos finish uploading. You need at least 5 completed photos to continue.");
+      return;
+    }
+    
     localStorage.setItem('mc_photoCount', String(count));
     // Save photos with all data for animations page
     const photosForStorage = validPhotos.map((p) => ({
@@ -441,13 +448,20 @@ const Upload = () => {
 
           {/* Continue Button */}
           <div className="pt-6 flex justify-center">
-            <button
-              onClick={handleContinue}
-              disabled={uploadedPhotos.length < 5}
-              className="px-10 py-4 rounded-lg bg-primary text-primary-foreground font-semibold text-lg shadow-premium hover:shadow-soft hover:bg-primary/90 transition-smooth disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary disabled:hover:shadow-premium"
-            >
-              Continue
-            </button>
+            {(() => {
+              const completePhotos = uploadedPhotos.filter((p) => !p.loading);
+              const hasAnyLoading = uploadedPhotos.some((p) => p.loading);
+              const isDisabled = completePhotos.length < 5 || hasAnyLoading;
+              return (
+                <button
+                  onClick={handleContinue}
+                  disabled={isDisabled}
+                  className="px-10 py-4 rounded-lg bg-primary text-primary-foreground font-semibold text-lg shadow-premium hover:shadow-soft hover:bg-primary/90 transition-smooth disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary disabled:hover:shadow-premium"
+                >
+                  {hasAnyLoading ? "Uploading..." : "Continue"}
+                </button>
+              );
+            })()}
           </div>
         </div>
       </div>
