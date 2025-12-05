@@ -201,9 +201,6 @@ const Upload = () => {
         );
 
         uploadedFile.done(async (fileInfo: any) => {
-          // Set metadata with Order ID
-          fileInfo.setMetadata('orderId', mcOrderId);
-          
           // Call classify-photo edge function
           let classification = {
             category: null as string | null,
