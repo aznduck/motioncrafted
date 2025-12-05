@@ -139,12 +139,14 @@ const Animations = () => {
                   </div>
 
                   {/* Photo thumbnail */}
-                  <div className="flex-shrink-0">
+                  <div 
+                    className="relative w-[100px] md:w-[140px] aspect-[4/5] rounded-xl bg-muted overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border-2 border-border"
+                    onClick={() => setPreviewPhoto({ id: photo.id, url: photo.url })}
+                  >
                     <img
                       src={photo.url}
                       alt={`Photo ${index + 1}`}
-                      onClick={() => setPreviewPhoto({ id: photo.id, url: photo.url })}
-                      className="max-w-[120px] md:max-w-[160px] h-auto object-contain rounded-lg border-2 border-border cursor-pointer hover:opacity-80 transition-opacity"
+                      className="max-w-full max-h-full object-contain"
                     />
                   </div>
                 </div>
@@ -156,19 +158,21 @@ const Animations = () => {
 
       {/* Full-size preview modal */}
       <Dialog open={!!previewPhoto} onOpenChange={() => setPreviewPhoto(null)}>
-        <DialogContent className="max-w-3xl p-2 bg-background/95 backdrop-blur-sm border-border">
+        <DialogContent className="max-w-fit p-4 bg-transparent border-none shadow-none">
           <button
             onClick={() => setPreviewPhoto(null)}
-            className="absolute right-3 top-3 z-10 p-1 rounded-full bg-background/80 hover:bg-background transition-colors"
+            className="absolute -right-2 -top-2 z-10 p-2 rounded-full bg-background/90 hover:bg-background transition-colors shadow-lg"
           >
             <X className="h-5 w-5 text-foreground" />
           </button>
           {previewPhoto && (
-            <img
-              src={previewPhoto.url}
-              alt="Full preview"
-              className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
-            />
+            <div className="relative w-[min(90vw,500px)] aspect-[4/5] rounded-2xl bg-[#1a1a1a] overflow-hidden flex items-center justify-center">
+              <img
+                src={previewPhoto.url}
+                alt="Full preview"
+                className="max-w-full max-h-full object-contain"
+              />
+            </div>
           )}
         </DialogContent>
       </Dialog>
