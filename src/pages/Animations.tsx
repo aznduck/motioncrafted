@@ -32,23 +32,28 @@ const Animations = () => {
   useEffect(() => {
     const raw = localStorage.getItem("mc_uploadedPhotos");
     if (!raw) {
-      navigate("/upload");
+      navigate("/upload", { replace: true });
       return;
     }
 
-    const photos = JSON.parse(raw);
-    if (!photos || photos.length < 5) {
-      navigate("/upload");
-      return;
-    }
+    try {
+      const photos = JSON.parse(raw);
+      if (!Array.isArray(photos) || photos.length < 5) {
+        navigate("/upload", { replace: true });
+        return;
+      }
 
-    setPhotoAnimations(
-      photos.map((p: { id: string; url: string }) => ({
-        id: p.id,
-        url: p.url,
-        animation: "",
-      }))
-    );
+      setPhotoAnimations(
+        photos.map((p: { id: string; url: string }) => ({
+          id: p.id,
+          url: p.url,
+          animation: "",
+        }))
+      );
+    } catch (e) {
+      console.error("Failed to parse photos:", e);
+      navigate("/upload", { replace: true });
+    }
   }, [navigate]);
 
   const handleAnimationChange = (photoId: string, animation: string) => {

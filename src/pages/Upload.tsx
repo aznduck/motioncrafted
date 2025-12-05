@@ -23,15 +23,37 @@ const Upload = () => {
   const rollInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
 
-  // Generate unique Order ID once on mount
-  const [mcOrderId] = useState(() => `MC-${Date.now()}`);
+  // Generate unique Order ID once on mount, or reuse existing one
+  const [mcOrderId] = useState(() => {
+    const existing = localStorage.getItem("mc_orderId");
+    if (existing) return existing;
+    const newId = `MC-${Date.now()}`;
+    localStorage.setItem("mc_orderId", newId);
+    return newId;
+  });
 
-  // Store Order ID in localStorage for other pages
+  // Load existing photos from localStorage on mount
   useEffect(() => {
-    if (mcOrderId) {
-      localStorage.setItem("mc_orderId", mcOrderId);
+    const saved = localStorage.getItem("mc_uploadedPhotos");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setUploadedPhotos(parsed.map((p: any) => ({
+            id: p.id,
+            url: p.url,
+            loading: false,
+            category: p.category ?? null,
+            peopleCount: p.peopleCount ?? null,
+            hasAnimal: p.hasAnimal ?? false,
+            hasBaby: p.hasBaby ?? false,
+          })));
+        }
+      } catch (e) {
+        console.error("Failed to parse saved photos:", e);
+      }
     }
-  }, [mcOrderId]);
+  }, []);
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -240,12 +262,18 @@ const Upload = () => {
   };
 
   const handleContinue = () => {
-    const count = uploadedPhotos.length;
+    const validPhotos = uploadedPhotos.filter((p) => !p.loading);
+    const count = validPhotos.length;
     localStorage.setItem('mc_photoCount', String(count));
-    // Ensure photos are saved before navigating
-    const photosForStorage = uploadedPhotos
-      .filter((p) => !p.loading)
-      .map((p) => ({ id: p.id, url: p.url }));
+    // Save photos with all data for animations page
+    const photosForStorage = validPhotos.map((p) => ({
+      id: p.id,
+      url: p.url,
+      category: p.category,
+      peopleCount: p.peopleCount,
+      hasAnimal: p.hasAnimal,
+      hasBaby: p.hasBaby,
+    }));
     localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
     navigate('/animations');
   };
