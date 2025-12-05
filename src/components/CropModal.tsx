@@ -23,21 +23,33 @@ const createCroppedImage = (
     throw new Error("Could not get canvas context");
   }
 
-  // Set canvas size to crop size
-  canvas.width = crop.width;
-  canvas.height = crop.height;
+  // Calculate scale between displayed size and natural size
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
 
-  // Draw cropped image
+  // Scale crop coordinates to natural image dimensions
+  const scaledCrop = {
+    x: crop.x * scaleX,
+    y: crop.y * scaleY,
+    width: crop.width * scaleX,
+    height: crop.height * scaleY,
+  };
+
+  // Set canvas size to scaled crop size (full resolution)
+  canvas.width = scaledCrop.width;
+  canvas.height = scaledCrop.height;
+
+  // Draw cropped image at full resolution
   ctx.drawImage(
     image,
-    crop.x,
-    crop.y,
-    crop.width,
-    crop.height,
+    scaledCrop.x,
+    scaledCrop.y,
+    scaledCrop.width,
+    scaledCrop.height,
     0,
     0,
-    crop.width,
-    crop.height
+    scaledCrop.width,
+    scaledCrop.height
   );
 
   return new Promise((resolve, reject) => {
