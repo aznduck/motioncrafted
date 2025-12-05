@@ -141,7 +141,8 @@ const Animations = () => {
                   {/* Photo thumbnail */}
                   <div 
                     className="relative w-[100px] md:w-[140px] aspect-[4/5] rounded-xl bg-muted overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border-2 border-border"
-                    onClick={() => setPreviewPhoto({ id: photo.id, url: photo.url })}
+                    onClick={() => window.open(photo.url, "_blank")}
+                    title="Click to view full image"
                   >
                     <img
                       src={photo.url}
