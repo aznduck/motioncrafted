@@ -419,7 +419,7 @@ const Upload = () => {
                         <img
                           src={photo.url}
                           alt="Uploaded photo"
-                          className="max-w-full max-h-full object-contain"
+                          className="w-full h-full object-contain"
                         />
                         <button
                           onClick={() => handleDeletePhoto(photo.id)}
