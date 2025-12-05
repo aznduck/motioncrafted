@@ -158,7 +158,7 @@ const Animations = () => {
 
       {/* Full-size preview modal */}
       <Dialog open={!!previewPhoto} onOpenChange={() => setPreviewPhoto(null)}>
-        <DialogContent className="max-w-none w-auto p-0 bg-transparent border-none shadow-none [&>button]:hidden">
+        <DialogContent className="relative w-full max-w-[min(90vw,640px)] bg-background/95 border-none shadow-xl rounded-2xl flex flex-col items-center justify-center gap-4 p-4 [&>button]:hidden">
           <button
             onClick={() => setPreviewPhoto(null)}
             className="absolute -right-2 -top-2 z-10 p-2 rounded-full bg-background/90 hover:bg-background transition-colors shadow-lg"
@@ -166,10 +166,10 @@ const Animations = () => {
             <X className="h-5 w-5 text-foreground" />
           </button>
           {previewPhoto && (
-            <div className="w-[min(90vw,500px)] aspect-[4/5] rounded-2xl bg-[#1a1a1a] overflow-hidden flex items-center justify-center">
+            <div className="w-full aspect-[4/5] max-w-full rounded-2xl bg-[#111111] flex items-center justify-center overflow-hidden">
               <img
                 src={previewPhoto.url}
-                alt="Full preview"
+                alt="Preview"
                 className="max-w-full max-h-full object-contain"
               />
             </div>
