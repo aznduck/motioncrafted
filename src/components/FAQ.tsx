@@ -8,7 +8,7 @@ import {
 const faqs = [
   {
     question: "How long does it take to receive my video?",
-    answer: "Most projects are completed within 48 hours of receiving your photos. Premium and Tribute packages may receive priority processing for even faster turnaround.",
+    answer: "Most projects are completed within 48 hours of receiving your photos.",
   },
   {
     question: "What photo formats do you accept?",
@@ -28,7 +28,7 @@ const faqs = [
   },
   {
     question: "Can I add custom music to my video?",
-    answer: "Premium and Tribute packages include the option to add custom music. You can choose from our curated library or provide your own soundtrack.",
+    answer: "Yes! You can choose from our curated library of warm, sentimental soundtracks or provide your own music to personalize your video.",
   },
   {
     question: "Do you offer rush delivery?",
