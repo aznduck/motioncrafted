@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.classify-photo]
 verify_jwt = false
+
+[functions.suggest-animations]
+verify_jwt = false
