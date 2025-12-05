@@ -8,6 +8,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
+import { X } from "lucide-react";
 
 interface PhotoWithAnimation {
   id: string;
@@ -28,6 +33,7 @@ const ANIMATION_OPTIONS = [
 const Animations = () => {
   const navigate = useNavigate();
   const [photoAnimations, setPhotoAnimations] = useState<PhotoWithAnimation[]>([]);
+  const [previewPhoto, setPreviewPhoto] = useState<{ id: string; url: string } | null>(null);
 
   useEffect(() => {
     const raw = localStorage.getItem("mc_uploadedPhotos");
@@ -137,7 +143,8 @@ const Animations = () => {
                     <img
                       src={photo.url}
                       alt={`Photo ${index + 1}`}
-                      className="w-24 h-24 md:w-32 md:h-32 object-cover rounded-lg border-2 border-border"
+                      onClick={() => setPreviewPhoto({ id: photo.id, url: photo.url })}
+                      className="max-w-[120px] md:max-w-[160px] h-auto object-contain rounded-lg border-2 border-border cursor-pointer hover:opacity-80 transition-opacity"
                     />
                   </div>
                 </div>
@@ -146,6 +153,25 @@ const Animations = () => {
           </div>
         </div>
       </div>
+
+      {/* Full-size preview modal */}
+      <Dialog open={!!previewPhoto} onOpenChange={() => setPreviewPhoto(null)}>
+        <DialogContent className="max-w-3xl p-2 bg-background/95 backdrop-blur-sm border-border">
+          <button
+            onClick={() => setPreviewPhoto(null)}
+            className="absolute right-3 top-3 z-10 p-1 rounded-full bg-background/80 hover:bg-background transition-colors"
+          >
+            <X className="h-5 w-5 text-foreground" />
+          </button>
+          {previewPhoto && (
+            <img
+              src={previewPhoto.url}
+              alt="Full preview"
+              className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
