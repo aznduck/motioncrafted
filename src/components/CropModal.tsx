@@ -8,6 +8,7 @@ interface CropModalProps {
   imageUrl: string;
   onConfirm: (croppedBlob: Blob) => void;
   onCancel: () => void;
+  queueRemaining?: number;
 }
 
 // Helper function to create cropped image from pixel crop
@@ -54,7 +55,7 @@ const createCroppedImage = (
   });
 };
 
-const CropModal = ({ imageUrl, onConfirm, onCancel }: CropModalProps) => {
+const CropModal = ({ imageUrl, onConfirm, onCancel, queueRemaining = 0 }: CropModalProps) => {
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -114,7 +115,12 @@ const CropModal = ({ imageUrl, onConfirm, onCancel }: CropModalProps) => {
       <div className="relative z-10 w-full max-w-3xl mx-4 bg-card rounded-xl shadow-premium border-2 border-border overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-display text-foreground">Crop Your Photo</h2>
+          <div>
+            <h2 className="text-lg font-display text-foreground">Crop Your Photo</h2>
+            {queueRemaining > 0 && (
+              <p className="text-xs text-muted-foreground">{queueRemaining} more photo{queueRemaining > 1 ? 's' : ''} in queue</p>
+            )}
+          </div>
           <button
             onClick={onCancel}
             className="p-2 rounded-full hover:bg-muted transition-smooth"
@@ -169,7 +175,7 @@ const CropModal = ({ imageUrl, onConfirm, onCancel }: CropModalProps) => {
             ) : (
               <>
                 <Check className="h-4 w-4 mr-2" />
-                Confirm Crop
+                {queueRemaining > 0 ? "Confirm & Next" : "Confirm Crop"}
               </>
             )}
           </Button>

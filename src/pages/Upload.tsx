@@ -14,11 +14,19 @@ interface UploadedPhoto {
   hasBaby?: boolean;
 }
 
+interface QueuedFile {
+  file: File;
+  objectUrl: string;
+}
+
 const Upload = () => {
   const navigate = useNavigate();
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
-  const [pendingFileForCrop, setPendingFileForCrop] = useState<string | null>(null);
-  const [pendingFileName, setPendingFileName] = useState<string>("");
+  
+  // Multi-file crop queue state
+  const [cropQueue, setCropQueue] = useState<QueuedFile[]>([]);
+  const [currentFileForCrop, setCurrentFileForCrop] = useState<QueuedFile | null>(null);
+  
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const rollInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
@@ -72,51 +80,98 @@ const Upload = () => {
     };
   }, []);
 
-  // Handle file selection - intercept for cropping
-  const handleFileSelect = (file: File) => {
+  // Handle single file (camera) - opens crop modal directly
+  const handleSingleFileSelect = (file: File) => {
     const objectUrl = URL.createObjectURL(file);
-    setPendingFileForCrop(objectUrl);
-    setPendingFileName(file.name);
+    setCurrentFileForCrop({ file, objectUrl });
   };
 
-  // Setup file input handlers
-  const setupFileInput = (fileInput: HTMLInputElement) => {
+  // Handle multiple files - adds to queue
+  const handleMultipleFilesSelect = (files: File[]) => {
+    const queuedFiles: QueuedFile[] = files.map((file) => ({
+      file,
+      objectUrl: URL.createObjectURL(file),
+    }));
+
+    if (currentFileForCrop === null && queuedFiles.length > 0) {
+      // Start cropping the first file immediately
+      setCurrentFileForCrop(queuedFiles[0]);
+      setCropQueue(queuedFiles.slice(1));
+    } else {
+      // Add to existing queue
+      setCropQueue((prev) => [...prev, ...queuedFiles]);
+    }
+  };
+
+  // Move to next file in queue
+  const processNextInQueue = () => {
+    if (cropQueue.length > 0) {
+      const [next, ...rest] = cropQueue;
+      setCurrentFileForCrop(next);
+      setCropQueue(rest);
+    } else {
+      setCurrentFileForCrop(null);
+    }
+  };
+
+  // Setup camera input handler (single file)
+  useEffect(() => {
+    const input = cameraInputRef.current;
+    if (!input) return;
+
     const handleChange = (e: Event) => {
       const target = e.target as HTMLInputElement;
       const files = target.files;
-
       if (files && files.length > 0) {
-        // Only process first file - open crop modal
-        handleFileSelect(files[0]);
+        handleSingleFileSelect(files[0]);
         target.value = "";
       }
     };
 
-    fileInput.addEventListener("change", handleChange);
-    return () => fileInput.removeEventListener("change", handleChange);
-  };
-
-  useEffect(() => {
-    if (cameraInputRef.current) {
-      return setupFileInput(cameraInputRef.current);
-    }
+    input.addEventListener("change", handleChange);
+    return () => input.removeEventListener("change", handleChange);
   }, []);
 
+  // Setup camera roll input handler (multiple files)
   useEffect(() => {
-    if (rollInputRef.current) {
-      return setupFileInput(rollInputRef.current);
-    }
-  }, []);
+    const input = rollInputRef.current;
+    if (!input) return;
 
+    const handleChange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const files = target.files;
+      if (files && files.length > 0) {
+        handleMultipleFilesSelect(Array.from(files));
+        target.value = "";
+      }
+    };
+
+    input.addEventListener("change", handleChange);
+    return () => input.removeEventListener("change", handleChange);
+  }, [currentFileForCrop, cropQueue]);
+
+  // Setup local files input handler (multiple files)
   useEffect(() => {
-    if (filesInputRef.current) {
-      return setupFileInput(filesInputRef.current);
-    }
-  }, []);
+    const input = filesInputRef.current;
+    if (!input) return;
+
+    const handleChange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const files = target.files;
+      if (files && files.length > 0) {
+        handleMultipleFilesSelect(Array.from(files));
+        target.value = "";
+      }
+    };
+
+    input.addEventListener("change", handleChange);
+    return () => input.removeEventListener("change", handleChange);
+  }, [currentFileForCrop, cropQueue]);
 
   // Upload cropped image to Uploadcare
   const uploadCroppedImage = async (croppedBlob: Blob) => {
     const tempId = Date.now().toString() + Math.random();
+    const fileName = currentFileForCrop?.file.name || "cropped-image.jpg";
     
     // Add loading placeholder
     const loadingPhoto: UploadedPhoto = {
@@ -126,16 +181,15 @@ const Upload = () => {
     };
     setUploadedPhotos((prev) => [...prev, loadingPhoto]);
 
-    // Clear the crop modal
-    if (pendingFileForCrop) {
-      URL.revokeObjectURL(pendingFileForCrop);
+    // Clean up current file and move to next
+    if (currentFileForCrop) {
+      URL.revokeObjectURL(currentFileForCrop.objectUrl);
     }
-    setPendingFileForCrop(null);
-    setPendingFileName("");
+    processNextInQueue();
 
     try {
       // Create a File from the cropped Blob
-      const croppedFile = new File([croppedBlob], pendingFileName || "cropped-image.jpg", {
+      const croppedFile = new File([croppedBlob], fileName, {
         type: "image/jpeg",
       });
 
@@ -236,13 +290,12 @@ const Upload = () => {
     }
   };
 
-  // Cancel crop
+  // Cancel crop - skip current file and move to next
   const handleCropCancel = () => {
-    if (pendingFileForCrop) {
-      URL.revokeObjectURL(pendingFileForCrop);
+    if (currentFileForCrop) {
+      URL.revokeObjectURL(currentFileForCrop.objectUrl);
     }
-    setPendingFileForCrop(null);
-    setPendingFileName("");
+    processNextInQueue();
   };
 
   const triggerCamera = () => {
@@ -277,6 +330,9 @@ const Upload = () => {
     localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
     navigate('/animations');
   };
+
+  // Calculate remaining photos in queue for display
+  const queueCount = cropQueue.length + (currentFileForCrop ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-background py-8 md:py-12">
@@ -316,7 +372,7 @@ const Upload = () => {
               <Image className="h-6 w-6 text-primary flex-shrink-0" />
               <div className="text-left">
                 <div className="font-semibold text-sm">Select from Camera Roll</div>
-                <div className="text-xs text-muted-foreground">Choose from your photo library</div>
+                <div className="text-xs text-muted-foreground">Choose multiple photos at once</div>
               </div>
             </button>
 
@@ -327,7 +383,7 @@ const Upload = () => {
               <FolderOpen className="h-6 w-6 text-primary flex-shrink-0" />
               <div className="text-left">
                 <div className="font-semibold text-sm">Choose from Local Files</div>
-                <div className="text-xs text-muted-foreground">Browse your device storage</div>
+                <div className="text-xs text-muted-foreground">Select multiple files at once</div>
               </div>
             </button>
           </div>
@@ -411,21 +467,24 @@ const Upload = () => {
         ref={rollInputRef}
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
       />
       <input
         ref={filesInputRef}
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
       />
 
       {/* Crop Modal */}
-      {pendingFileForCrop && (
+      {currentFileForCrop && (
         <CropModal
-          imageUrl={pendingFileForCrop}
+          imageUrl={currentFileForCrop.objectUrl}
           onConfirm={uploadCroppedImage}
           onCancel={handleCropCancel}
+          queueRemaining={cropQueue.length}
         />
       )}
     </div>
