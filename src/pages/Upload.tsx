@@ -409,7 +409,7 @@ const Upload = () => {
             <div className="grid grid-cols-3 gap-3 max-w-2xl mx-auto">
               {uploadedPhotos.map((photo) => (
                 <div key={photo.id} className="flex flex-col gap-1">
-                  <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-border shadow-soft">
+                  <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-border shadow-soft bg-muted flex items-center justify-center">
                     {photo.loading ? (
                       <div className="w-full h-full flex items-center justify-center bg-muted">
                         <Loader2 className="h-8 w-8 text-primary animate-spin" />
@@ -419,7 +419,7 @@ const Upload = () => {
                         <img
                           src={photo.url}
                           alt="Uploaded photo"
-                          className="w-full h-full object-cover"
+                          className="max-w-full max-h-full object-contain"
                         />
                         <button
                           onClick={() => handleDeletePhoto(photo.id)}
