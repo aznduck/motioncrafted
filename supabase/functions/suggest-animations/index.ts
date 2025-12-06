@@ -8,6 +8,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const fallbackSuggestions = [
+  {
+    id: "natural_idle_motion",
+    label: "Natural idle motion",
+    description: "Adds gentle, lifelike movement while preserving the original moment.",
+    prompt: "Keep the camera locked to the original framing. Apply subtle, realistic idle motion—small breathing, tiny shifts in posture, and gentle environmental motion if appropriate. No large pose changes, no walking, running, or jumping."
+  }
+];
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -42,86 +51,42 @@ serve(async (req) => {
     console.log('Suggesting animations for photo:', photoUrl);
     console.log('Classification data:', { category, peopleCount, hasAnimal, hasBaby });
 
-    // Build context from classification data
-    let contextDescription = '';
+    // Build classification summary for user prompt
+    const classificationParts = [];
+    if (category) classificationParts.push(`Category: ${category}`);
+    if (peopleCount !== undefined) classificationParts.push(`peopleCount: ${peopleCount}`);
+    if (hasAnimal !== undefined) classificationParts.push(`hasAnimal: ${hasAnimal}`);
+    if (hasBaby !== undefined) classificationParts.push(`hasBaby: ${hasBaby}`);
     
-    if (category === 'portrait_single') {
-      contextDescription = 'This is a single-person portrait.';
-    } else if (category === 'portrait_couple') {
-      contextDescription = 'This is a photo of a couple (two people together).';
-    } else if (category === 'group') {
-      contextDescription = `This is a group photo with ${peopleCount || 'multiple'} people.`;
-    } else if (category === 'animal_pet') {
-      contextDescription = 'This photo features a pet animal (dog, cat, etc.).';
-    } else if (category === 'animal_horse') {
-      contextDescription = 'This photo features a horse.';
-    } else if (category === 'water') {
-      contextDescription = 'This is a water/beach/lake scene.';
-    } else if (category === 'landscape') {
-      contextDescription = 'This is a landscape or scenic photo.';
-    } else if (category === 'baby') {
-      contextDescription = 'This photo features a baby or young child.';
-    } else if (category === 'vehicle') {
-      contextDescription = 'This photo features a vehicle.';
-    } else {
-      contextDescription = 'Photo type is unspecified.';
-    }
+    const classificationSummary = classificationParts.length > 0 
+      ? classificationParts.join(', ') + '.'
+      : 'No classification data provided.';
 
-    if (hasAnimal && category !== 'animal_pet' && category !== 'animal_horse') {
-      contextDescription += ' An animal is present in the photo.';
-    }
-    if (hasBaby && category !== 'baby') {
-      contextDescription += ' A baby or young child is present.';
-    }
-    if (peopleCount && peopleCount > 0 && category !== 'portrait_single' && category !== 'portrait_couple' && category !== 'group') {
-      contextDescription += ` There are ${peopleCount} people visible.`;
-    }
+    const systemPrompt = `You are an animation director for a sentimental family video service. Users upload real photos and we turn them into short animated clips using a model similar to Kling 2.5 Turbo.
 
-    const systemPrompt = `You are an animation director for Motion Crafted, a premium service that transforms still photos into cinematic animated keepsake videos using Kling 2.5 Turbo AI.
+Your job is to propose 5–7 different animation options for THIS specific photo. Each option must:
+- Be emotionally meaningful and visually tasteful.
+- Use subtle-to-medium motion only (no large pose changes).
+- Keep the camera completely locked to the original framing (no pan, zoom, or orbit).
+- Use realistic facial and body micro-movement: soft smiles, gentle head tilts, small shifts in gaze, slight shoulder movement, breathing, subtle hair or fabric movement, and gentle environmental details (light shimmer, water ripple, breeze).
+- Never suggest running, jumping, spinning, dancing, backflips, flying, or any big action.
+- Be appropriate for the content: babies, couples, families, pets, animals, water scenes, landscapes, etc.
 
-Your job is to generate 5–7 PERSONALIZED animation options for this specific photo. Each option should feel warm, emotional, and cinematic—like describing a scene in a heartfelt short film.
+The tone should be neutral but emotionally cinematic: clear, warm, and not technical. Think in terms of 'moments' rather than 'effects'.
 
-CRITICAL CONSTRAINTS FOR KLING 2.5 TURBO:
-- Subtle to medium motion ONLY (no running, jumping, dancing, walking, or large pose changes)
-- NO camera movement (no pan, zoom, dolly, or tracking shots)
-- Focus on: facial expressions, eye movements, gentle gestures, ambient motion, hair/clothing sway
-- The subject should stay in roughly the same position throughout
-
-LABEL STYLE:
-- Use neutral, emotionally cinematic language (warm but not overly sentimental)
-- Keep labels concise (3-8 words)
-- Avoid technical jargon or AI terminology
-- Examples of good labels: "A gentle smile emerges", "Eyes that tell a story", "Peaceful moment in time"
-
-PROMPT STYLE:
-- Write as a brief scene direction (1-2 sentences)
-- Describe the subtle motion and emotional quality
-- Be specific to what you see in the actual photo
-- Safe for Kling 2.5: emphasize stillness with life-like subtle motion
-
-Return your response as JSON with this exact structure:
+Output MUST be STRICTLY valid JSON in this form:
 {
-  "animations": [
+  "suggestions": [
     {
-      "label": "concise emotional label",
-      "prompt": "Brief scene direction describing the subtle animation"
+      "id": "machine_friendly_id",
+      "label": "Short neutral emotional cinematic label for UI",
+      "description": "One short sentence describing what happens emotionally/visually.",
+      "prompt": "A detailed generation prompt describing the animation. Mention that the camera stays locked, motion is realistic and subtle-to-medium, and the result should feel heartfelt and tasteful."
     }
   ]
-}
+}`;
 
-Generate exactly 5-7 options tailored to this specific photo content.`;
-
-    const userPrompt = `Analyze this photo and generate 5-7 personalized animation options.
-
-${contextDescription}
-
-Create animation options that:
-1. Are specifically tailored to what you see in this photo
-2. Use warm, cinematic language for the labels
-3. Have prompts safe for Kling 2.5 Turbo (subtle-medium motion only, no camera movement)
-4. Would create an emotional, lifelike result suitable for a premium keepsake video gift
-
-Consider the subjects, their expressions, the setting, lighting, and mood when crafting each option.`;
+    const userTextContent = `${classificationSummary} Please suggest 5–7 animation ideas that would feel special and emotionally moving for this specific photo.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -136,12 +101,12 @@ Consider the subjects, their expressions, the setting, lighting, and mood when c
           { 
             role: 'user', 
             content: [
-              { type: 'text', text: userPrompt },
+              { type: 'text', text: userTextContent },
               { type: 'image_url', image_url: { url: photoUrl } }
             ]
           }
         ],
-        max_tokens: 1000,
+        max_tokens: 1500,
         temperature: 0.7,
       }),
     });
@@ -150,9 +115,9 @@ Consider the subjects, their expressions, the setting, lighting, and mood when c
       const errorText = await response.text();
       console.error('OpenAI API error:', response.status, errorText);
       return new Response(
-        JSON.stringify({ error: 'Failed to analyze photo' }),
+        JSON.stringify({ suggestions: fallbackSuggestions }),
         {
-          status: 500,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -164,9 +129,9 @@ Consider the subjects, their expressions, the setting, lighting, and mood when c
     if (!content) {
       console.error('No content in OpenAI response:', data);
       return new Response(
-        JSON.stringify({ error: 'No response from AI' }),
+        JSON.stringify({ suggestions: fallbackSuggestions }),
         {
-          status: 500,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -174,43 +139,38 @@ Consider the subjects, their expressions, the setting, lighting, and mood when c
 
     console.log('OpenAI raw response:', content);
 
-    // Parse JSON from response (handle potential markdown wrapping)
+    // Parse JSON from response (strip any markdown code fences)
     let result;
     try {
       const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       result = JSON.parse(cleanedContent);
     } catch (parseError) {
       console.error('Failed to parse OpenAI response as JSON:', parseError);
-      // Return fallback options if parsing fails
-      result = {
-        animations: [
-          { label: "A gentle smile emerges", prompt: "The subject's face softens into a warm, natural smile while their eyes brighten with subtle emotion." },
-          { label: "Eyes that tell a story", prompt: "Gentle eye movement and a slow blink bring life to the portrait, as if lost in a cherished memory." },
-          { label: "Peaceful moment in time", prompt: "Subtle breathing motion and a serene expression create a living portrait full of quiet emotion." },
-          { label: "Warmth in stillness", prompt: "A soft head tilt and tender gaze convey deep affection in this intimate moment." },
-          { label: "Natural presence", prompt: "Lifelike idle motion—gentle swaying, hair movement, and ambient breathing create an authentic living memory." }
-        ]
-      };
+      return new Response(
+        JSON.stringify({ suggestions: fallbackSuggestions }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // Validate the response structure
-    if (!result.animations || !Array.isArray(result.animations) || result.animations.length < 5) {
-      console.warn('Invalid or insufficient animations in response, using fallback');
-      result = {
-        animations: [
-          { label: "A gentle smile emerges", prompt: "The subject's face softens into a warm, natural smile while their eyes brighten with subtle emotion." },
-          { label: "Eyes that tell a story", prompt: "Gentle eye movement and a slow blink bring life to the portrait, as if lost in a cherished memory." },
-          { label: "Peaceful moment in time", prompt: "Subtle breathing motion and a serene expression create a living portrait full of quiet emotion." },
-          { label: "Warmth in stillness", prompt: "A soft head tilt and tender gaze convey deep affection in this intimate moment." },
-          { label: "Natural presence", prompt: "Lifelike idle motion—gentle swaying, hair movement, and ambient breathing create an authentic living memory." }
-        ]
-      };
+    if (!result.suggestions || !Array.isArray(result.suggestions) || result.suggestions.length === 0) {
+      console.warn('Invalid or missing suggestions in response, using fallback');
+      return new Response(
+        JSON.stringify({ suggestions: fallbackSuggestions }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    console.log('Animation suggestions:', result);
+    console.log('Animation suggestions:', result.suggestions);
 
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({ suggestions: result.suggestions }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -220,9 +180,9 @@ Consider the subjects, their expressions, the setting, lighting, and mood when c
   } catch (err) {
     console.error('Error in suggest-animations function:', err);
     return new Response(
-      JSON.stringify({ error: 'Failed to suggest animations' }),
+      JSON.stringify({ suggestions: fallbackSuggestions }),
       {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
