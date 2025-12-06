@@ -94,7 +94,7 @@ const Checkout = () => {
           {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl md:text-4xl font-display text-foreground mb-2">
-              Step 2 – Review & Complete Your Order
+              Step 3 – Review & Complete Your Order
             </h1>
             {orderId && (
               <p className="text-xs text-muted-foreground/60 mt-2">

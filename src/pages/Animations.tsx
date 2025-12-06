@@ -83,6 +83,7 @@ const Animations = () => {
           <div className="lg:w-2/5 space-y-6">
             <div className="space-y-4">
               <h1 className="text-3xl md:text-4xl font-display text-foreground">
+                Step 2 –
                 Choose Animations for Each Photo
               </h1>
               <p className="text-muted-foreground">
