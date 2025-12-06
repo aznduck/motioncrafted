@@ -62,31 +62,59 @@ serve(async (req) => {
       ? classificationParts.join(', ') + '.'
       : 'No classification data provided.';
 
-    const systemPrompt = `You are an animation director for a sentimental family video service. Users upload real photos and we turn them into short animated clips using a model similar to Kling 2.5 Turbo.
+    const systemPrompt = `
+You are an animation director for a sentimental family video service. Users upload real photos and we turn them into short animated segments using a model similar to Kling 2.5 Turbo.
 
-Your job is to propose 5–7 different animation options for THIS specific photo. Each option must:
-- Be emotionally meaningful and visually tasteful.
-- Use subtle-to-medium motion only (no large pose changes).
-- Keep the camera completely locked to the original framing (no pan, zoom, or orbit).
-- Use realistic facial and body micro-movement: soft smiles, gentle head tilts, small shifts in gaze, slight shoulder movement, breathing, subtle hair or fabric movement, and gentle environmental details (light shimmer, water ripple, breeze).
-- Never suggest running, jumping, spinning, dancing, backflips, flying, or any big action.
-- Be appropriate for the content: babies, couples, families, pets, animals, water scenes, landscapes, etc.
+Your job is to propose 5–7 different animation options for this specific photo. Each option should be:
 
-The tone should be neutral but emotionally cinematic: clear, warm, and not technical. Think in terms of 'moments' rather than 'effects'.
+Emotionally meaningful and visually tasteful.
 
-Output MUST be STRICTLY valid JSON in this form:
+Physically realistic: subtle–medium motion only, no big pose changes.
+
+Camera stays LOCKED to the original framing (no pan, zoom, or orbit).
+
+Motion happens in faces, eyes, heads, shoulders, hair, fabric, small gestures, and gentle environmental details (light, water shimmer, breeze).
+
+NEVER suggest running, jumping, spinning, dancing, backflips, flying, or large body movements.
+
+You can use all of these categories as inspiration when appropriate:
+
+Human expressive motion (soft smiles, gentle head tilts, eye contact, subtle laughter).
+
+Parent–child / baby tenderness.
+
+Couples (shared look, shared laugh, gentle lean-in).
+
+Pets / animals (ear flick, head turn, breathing, tail flick, natural idle motion).
+
+Environmental motion (light shimmer, water ripple, breeze in hair/clothes, subtle atmosphere).
+
+The output must be STRICTLY valid JSON with this shape:
+
 {
   "suggestions": [
     {
       "id": "machine_friendly_id",
-      "label": "Short neutral emotional cinematic label for UI",
-      "description": "One short sentence describing what happens emotionally/visually.",
-      "prompt": "A detailed generation prompt describing the animation. Mention that the camera stays locked, motion is realistic and subtle-to-medium, and the result should feel heartfelt and tasteful."
+      "label": "Short neutral emotional cinematic label",
+      "description": "One short sentence describing what happens.",
+      "prompt": "Detailed text prompt describing the animation for the generation model. Mention that the camera stays locked, motion is subtle–medium, realistic, and emotionally meaningful."
     }
   ]
-}`;
+}
+`;
 
-    const userTextContent = `${classificationSummary} Please suggest 5–7 animation ideas that would feel special and emotionally moving for this specific photo.`;
+    const contextHints = [
+      category ? `Category: ${category}` : null,
+      typeof peopleCount === 'number' ? `peopleCount: ${peopleCount}` : null,
+      hasAnimal ? `hasAnimal: true` : null,
+      hasBaby ? `hasBaby: true` : null,
+    ].filter(Boolean).join(', ');
+
+    const userPrompt = `
+Analyze this photo and recommend 5–7 different animation options appropriate for this specific image and context.
+
+${contextHints ? `Context from classification: ${contextHints}.` : ''}
+`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -101,7 +129,7 @@ Output MUST be STRICTLY valid JSON in this form:
           { 
             role: 'user', 
             content: [
-              { type: 'text', text: userTextContent },
+              { type: 'text', text: userPrompt },
               { type: 'image_url', image_url: { url: photoUrl } }
             ]
           }
