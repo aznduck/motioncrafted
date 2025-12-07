@@ -13,11 +13,21 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+type AnimationSuggestion = {
+  id: string;
+  label: string;
+  description: string;
+  prompt: string;
+};
 
 interface PhotoWithAnimation {
   id: string;
   url: string;
-  animation: string;
+  animationId: string;
+  animationLabel: string;
+  klingPrompt: string;
 }
 
 const ANIMATION_OPTIONS = [
@@ -34,6 +44,8 @@ const Animations = () => {
   const navigate = useNavigate();
   const [photoAnimations, setPhotoAnimations] = useState<PhotoWithAnimation[]>([]);
   const [previewPhoto, setPreviewPhoto] = useState<{ id: string; url: string } | null>(null);
+  const [suggestionsByPhoto, setSuggestionsByPhoto] = useState<Record<string, AnimationSuggestion[]>>({});
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   useEffect(() => {
     const raw = localStorage.getItem("mc_uploadedPhotos");
@@ -50,25 +62,85 @@ const Animations = () => {
       }
 
       setPhotoAnimations(
-        photos.map((p: { id: string; url: string }) => ({
+        photos.map((p: any) => ({
           id: p.id,
           url: p.url,
-          animation: "",
+          animationId: "",
+          animationLabel: "",
+          klingPrompt: "",
         }))
       );
+
+      // Fetch AI suggestions for each photo
+      const fetchSuggestions = async () => {
+        setLoadingSuggestions(true);
+        try {
+          const nextSuggestionsByPhoto: Record<string, AnimationSuggestion[]> = {};
+          for (const photo of photos) {
+            const { data, error } = await supabase.functions.invoke("suggest-animations", {
+              body: {
+                photoUrl: photo.url,
+                category: photo.category ?? null,
+                peopleCount: photo.peopleCount ?? null,
+                hasAnimal: photo.hasAnimal ?? false,
+                hasBaby: photo.hasBaby ?? false,
+              },
+            });
+
+            if (error) {
+              console.error("Error fetching suggestions for photo", photo.id, error);
+              continue;
+            }
+
+            const suggestions = (data?.suggestions as AnimationSuggestion[]) ?? [];
+            if (suggestions.length > 0) {
+              nextSuggestionsByPhoto[photo.id] = suggestions;
+            }
+          }
+          setSuggestionsByPhoto(nextSuggestionsByPhoto);
+        } catch (err) {
+          console.error("Unexpected error fetching animation suggestions", err);
+        } finally {
+          setLoadingSuggestions(false);
+        }
+      };
+
+      fetchSuggestions();
     } catch (e) {
       console.error("Failed to parse photos:", e);
       navigate("/upload", { replace: true });
     }
   }, [navigate]);
 
-  const handleAnimationChange = (photoId: string, animation: string) => {
+  const handleAnimationChange = (photoId: string, selectedValue: string) => {
     setPhotoAnimations((prev) =>
-      prev.map((p) => (p.id === photoId ? { ...p, animation } : p))
+      prev.map((p) => {
+        if (p.id !== photoId) return p;
+
+        const aiSuggestions = suggestionsByPhoto[photoId] || [];
+        const matched = aiSuggestions.find((s) => s.id === selectedValue);
+
+        if (matched) {
+          return {
+            ...p,
+            animationId: matched.id,
+            animationLabel: matched.label,
+            klingPrompt: matched.prompt,
+          };
+        }
+
+        // Fallback to static label
+        return {
+          ...p,
+          animationId: selectedValue,
+          animationLabel: selectedValue,
+          klingPrompt: "",
+        };
+      })
     );
   };
 
-  const allSelected = photoAnimations.every((p) => p.animation !== "");
+  const allSelected = photoAnimations.every((p) => p.animationId !== "");
 
   const handleContinue = () => {
     localStorage.setItem("mc_photoAnimations", JSON.stringify(photoAnimations));
@@ -111,48 +183,68 @@ const Animations = () => {
 
           {/* Right side - Photo list with dropdowns */}
           <div className="lg:w-3/5">
+            {loadingSuggestions && (
+              <p className="text-sm text-muted-foreground mb-4">
+                Fetching AI animation ideas for your photos…
+              </p>
+            )}
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-              {photoAnimations.map((photo, index) => (
-                <div
-                  key={photo.id}
-                  className="flex items-center gap-4 p-4 rounded-lg border-2 border-border bg-card shadow-soft"
-                >
-                  {/* Dropdown */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Photo {index + 1}
-                    </p>
-                    <Select
-                      value={photo.animation}
-                      onValueChange={(value) => handleAnimationChange(photo.id, value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select animation…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ANIMATION_OPTIONS.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              {photoAnimations.map((photo, index) => {
+                const aiSuggestionsForPhoto = suggestionsByPhoto[photo.id] || [];
+                const hasAISuggestions = aiSuggestionsForPhoto.length > 0;
 
-                  {/* Photo thumbnail */}
-                  <div 
-                    className="relative w-[100px] md:w-[140px] aspect-[4/5] rounded-xl bg-muted overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border-2 border-border"
-                    onClick={() => window.open(photo.url, "_blank")}
-                    title="Click to view full image"
+                const optionsToRender = hasAISuggestions
+                  ? aiSuggestionsForPhoto.map((s) => ({
+                      value: s.id,
+                      label: s.label,
+                    }))
+                  : ANIMATION_OPTIONS.map((label) => ({
+                      value: label,
+                      label,
+                    }));
+
+                return (
+                  <div
+                    key={photo.id}
+                    className="flex items-center gap-4 p-4 rounded-lg border-2 border-border bg-card shadow-soft"
                   >
-                    <img
-                      src={photo.url}
-                      alt={`Photo ${index + 1}`}
-                      className="max-w-full max-h-full object-contain"
-                    />
+                    {/* Dropdown */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Photo {index + 1}
+                      </p>
+                      <Select
+                        value={photo.animationId}
+                        onValueChange={(value) => handleAnimationChange(photo.id, value)}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select animation…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {optionsToRender.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Photo thumbnail */}
+                    <div 
+                      className="relative w-[100px] md:w-[140px] aspect-[4/5] rounded-xl bg-muted overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border-2 border-border"
+                      onClick={() => window.open(photo.url, "_blank")}
+                      title="Click to view full image"
+                    >
+                      <img
+                        src={photo.url}
+                        alt={`Photo ${index + 1}`}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
