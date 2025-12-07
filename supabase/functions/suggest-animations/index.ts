@@ -175,6 +175,7 @@ Return ONLY the JSON object with a "suggestions" array as described in the syste
         ],
         max_tokens: 1500,
         temperature: 0.7,
+        response_format: { type: 'json_object' },
       }),
     });
 
@@ -191,57 +192,60 @@ Return ONLY the JSON object with a "suggestions" array as described in the syste
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const message = data.choices?.[0]?.message;
+    const rawContent = message?.content;
 
-    if (!content) {
+    if (!rawContent) {
       console.error('No content in OpenAI response:', data);
       return new Response(
         JSON.stringify({ suggestions: fallbackSuggestions }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('OpenAI raw response:', content);
+    // Handle both string and array formats for content
+    let contentText: string;
+    if (typeof rawContent === 'string') {
+      contentText = rawContent;
+    } else if (Array.isArray(rawContent)) {
+      contentText = rawContent
+        .filter((part: any) => part.type === 'text' && typeof part.text === 'string')
+        .map((part: any) => part.text)
+        .join('\n')
+        .trim();
+    } else {
+      console.error('Unexpected OpenAI message content format:', rawContent);
+      return new Response(
+        JSON.stringify({ suggestions: fallbackSuggestions }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Parse JSON from response (strip any markdown code fences)
+    console.log('OpenAI raw text content:', contentText);
+
+    // Because we requested response_format: json_object, this should already be raw JSON
     let result;
     try {
-      const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      result = JSON.parse(cleanedContent);
+      result = JSON.parse(contentText);
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response as JSON:', parseError);
+      console.error('Failed to parse OpenAI response as JSON:', parseError, 'content:', contentText);
       return new Response(
         JSON.stringify({ suggestions: fallbackSuggestions }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Validate the response structure
-    if (!result.suggestions || !Array.isArray(result.suggestions) || result.suggestions.length === 0) {
-      console.warn('Invalid or missing suggestions in response, using fallback');
+    if (!result || !Array.isArray(result.suggestions) || result.suggestions.length === 0) {
+      console.warn('Invalid or missing suggestions in response, using fallback. Result was:', result);
       return new Response(
         JSON.stringify({ suggestions: fallbackSuggestions }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    console.log('Animation suggestions:', result.suggestions);
 
     return new Response(
       JSON.stringify({ suggestions: result.suggestions }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (err) {
