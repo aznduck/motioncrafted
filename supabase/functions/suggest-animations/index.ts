@@ -155,27 +155,30 @@ ${
 Return ONLY the JSON object with a "suggestions" array as described in the system instructions.
 `;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { 
-            role: 'user', 
+        model: "gpt-4o",
+        input: [
+          {
+            role: "system",
+            content: systemPrompt,
+          },
+          {
+            role: "user",
             content: [
-              { type: 'text', text: userPrompt },
-              { type: 'image_url', image_url: { url: photoUrl } }
-            ]
-          }
+              { type: "text", text: userPrompt },
+              { type: "input_image", image_url: photoUrl }
+            ],
+          },
         ],
-        max_tokens: 1500,
+        response_format: { type: "json_object" },
         temperature: 0.7,
-        response_format: { type: 'json_object' },
+        max_output_tokens: 1500
       }),
     });
 
@@ -191,61 +194,31 @@ Return ONLY the JSON object with a "suggestions" array as described in the syste
       );
     }
 
-    const data = await response.json();
-    const message = data.choices?.[0]?.message;
-    const rawContent = message?.content;
+    const json = await response.json();
+    const output = json.output_text || json.output || null;
 
-    if (!rawContent) {
-      console.error('No content in OpenAI response:', data);
-      return new Response(
-        JSON.stringify({ suggestions: fallbackSuggestions }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!output) {
+      console.error("No JSON output from model:", json);
+      return new Response(JSON.stringify({ suggestions: fallbackSuggestions }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Handle both string and array formats for content
-    let contentText: string;
-    if (typeof rawContent === 'string') {
-      contentText = rawContent;
-    } else if (Array.isArray(rawContent)) {
-      contentText = rawContent
-        .filter((part: any) => part.type === 'text' && typeof part.text === 'string')
-        .map((part: any) => part.text)
-        .join('\n')
-        .trim();
-    } else {
-      console.error('Unexpected OpenAI message content format:', rawContent);
-      return new Response(
-        JSON.stringify({ suggestions: fallbackSuggestions }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('OpenAI raw text content:', contentText);
-
-    // Because we requested response_format: json_object, this should already be raw JSON
     let result;
     try {
-      result = JSON.parse(contentText);
-    } catch (parseError) {
-      console.error('Failed to parse OpenAI response as JSON:', parseError, 'content:', contentText);
-      return new Response(
-        JSON.stringify({ suggestions: fallbackSuggestions }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!result || !Array.isArray(result.suggestions) || result.suggestions.length === 0) {
-      console.warn('Invalid or missing suggestions in response, using fallback. Result was:', result);
-      return new Response(
-        JSON.stringify({ suggestions: fallbackSuggestions }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      result = JSON.parse(output);
+    } catch (err) {
+      console.error("Failed to parse JSON:", output);
+      return new Response(JSON.stringify({ suggestions: fallbackSuggestions }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     return new Response(
       JSON.stringify({ suggestions: result.suggestions }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (err) {
