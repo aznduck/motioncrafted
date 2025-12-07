@@ -210,13 +210,14 @@ Return ONLY the JSON object with a "suggestions" array as described in the syste
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            // TEXT ONLY – we describe the photo and pass classification hints, but do not send the image itself.
-            content: userPrompt,
+            content: [
+              { type: "text", text: userPrompt },
+              { type: "image_url", image_url: { url: photoUrl } }
+            ],
           },
         ],
         max_tokens: 1500,
         temperature: 0.7,
-        // JSON mode: force a single JSON object
         response_format: { type: "json_object" },
       }),
     });
