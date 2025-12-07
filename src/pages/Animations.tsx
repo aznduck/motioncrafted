@@ -140,6 +140,11 @@ const Animations = () => {
     );
   };
 
+  const hasAISuggestionsFor = (photoId: string) => {
+    const ai = suggestionsByPhoto[photoId] || [];
+    return ai.length > 0;
+  };
+
   const allSelected = photoAnimations.every((p) => p.animationId !== "");
 
   const handleContinue = () => {
@@ -213,6 +218,15 @@ const Animations = () => {
                       <p className="text-xs text-muted-foreground mb-2">
                         Photo {index + 1}
                       </p>
+                      {/* Debug block */}
+                      <div className="mb-1">
+                        <p className="text-[10px] text-gray-400">
+                          Debug – Source: {hasAISuggestions ? "AI" : "STATIC"} • Photo ID: {photo.id}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          Options: {optionsToRender.map((o) => o.label).join(" | ")}
+                        </p>
+                      </div>
                       <Select
                         value={photo.animationId}
                         onValueChange={(value) => handleAnimationChange(photo.id, value)}
