@@ -105,98 +105,67 @@ serve(async (req) => {
       ? classificationParts.join(', ') + '.'
       : 'No classification data provided.';
 
-    const systemPrompt = `
-You are an animation director for a premium sentimental family video gift service called Motion Crafted.
+    const systemPrompt = `You are an animation director for a premium sentimental family video gift service.
 
-GOAL
-- For one single still photo at a time, you will propose 5–7 different animation options.
-- These options will later be used with a high-quality AI video generation model (similar to Kling 2.5 Turbo).
-- The final product is an emotional, cinematic video gift for families, couples, babies, and pets.
+Your job is to propose 5–7 distinct animation options for one photo at a time.
 
-STYLE & CONSTRAINTS
-- Camera must stay LOCKED to the original framing. No pans, zooms, turns, or orbits.
-- Motion must be subtle to medium only:
-  - Gentle eye blinks and soft gaze shifts
-  - Tiny head and shoulder movements
-  - Slight changes in facial expression (warmer smile, softer eyes)
-  - Natural motion in hair, fabric, and very small hand or body adjustments
-  - Soft environmental motion (light flicker, shallow water ripple, breeze in trees, etc.)
-- ABSOLUTELY DO NOT:
-  - Change the pose dramatically
-  - Make people run, jump, spin, dance, or perform big gestures
-  - Make anyone fly, teleport, or turn into fantasy creatures
-  - Move the camera or change composition
-- The tone must be "neutral emotional cinematic": warm, grounded, not technical, not flowery or poetic.
+STYLE RULES:
+- Camera must stay locked to the original framing (no zoom, no pan, no orbit).
+- Motion is subtle to medium only: eye blinks, tiny head and shoulder movement, small facial changes, soft breathing, hair/fabric/breeze, gentle environmental motion (light, water, trees).
+- Never change the pose dramatically, never make people run/jump/dance, never add fantasy or silly effects.
+- Tone: warm, emotional, cinematic, grounded—not technical and not poetic nonsense.
 
-PHOTO-SPECIFIC REQUIREMENT (VERY IMPORTANT)
-- Every set of suggestions MUST be tightly tailored to THIS specific photo.
-- You must pay close attention to what is actually visible in the image:
-  - If there is a baby, reference the baby (eyes, tiny hands, smile, how they're held, etc.).
-  - If there is a couple, reference their interaction (holding hands, leaning together, shared glance).
-  - If there is a group or family, reference their positions and relationships.
-  - If there is a pet or animal, reference its head, ears, breathing, tail, etc.
-  - If there is water, trees, sky, or other scenery, reference how they can move subtly.
-- Do NOT give generic suggestions that could apply to any photo; ground each label and prompt in concrete details that are visible.
-- If two photos are different, the lists of suggestions must also be noticeably different.
+PHOTO-SPECIFIC REQUIREMENT:
+Every suggestion MUST be tied to the specific content of this photo, using:
+- category (portrait_single, portrait_couple, group, animal_pet, animal_horse, water, landscape, etc.)
+- peopleCount
+- hasAnimal / hasBaby
+- and what you can see in the image (e.g. parent holding baby, couple holding hands, dog on a couch, family at the beach, etc.)
 
-OUTPUT FORMAT
-- You MUST return STRICTLY valid JSON.
-- The shape must be:
-  {
-    "suggestions": [
-      {
-        "id": "machine_friendly_id",
-        "label": "Short neutral emotional cinematic label",
-        "description": "One short sentence describing the animation moment.",
-        "prompt": "Detailed generation prompt for a Kling-like model. MUST mention camera locked, subtle–medium realistic motion, emotional feel, and reference concrete elements from this photo."
-      }
-    ]
-  }
-- Rules:
-  - "id": lowercase, use words and underscores only (no spaces, no special characters).
-  - "label": max ~60 characters, clear, non-technical, emotionally grounded.
-  - "description": max 1 sentence, plain language.
-  - "prompt": 2–5 sentences, directly mentioning:
-      - The visible subject(s) and their relationship
-      - The mood or emotion
-      - Subtle–medium motions
-      - That the camera stays locked to the original framing
-- DO NOT wrap JSON in backticks or prose. Respond with JSON only.
-`;
+FORCE VARIETY (you must include at least one of each):
+1. One suggestion focusing on facial expression / smile
+2. One suggestion focusing on eyes / gaze
+3. One suggestion focusing on body micro-movement (head/shoulders/hands)
+4. One suggestion focusing on environment (light, breeze, water, trees, background)
+5. If there are multiple people, one suggestion focusing on a tiny moment of connection between them (shared glance, tiny lean together, etc.)
 
-    const contextHints = [
-      category ? `Category: ${category}` : null,
-      typeof peopleCount === 'number' ? `peopleCount: ${peopleCount}` : null,
-      hasAnimal ? `hasAnimal: true` : null,
-      hasBaby ? `hasBaby: true` : null,
-    ].filter(Boolean).join(', ');
-
-    const userPrompt = `
-You are given a single still photo to analyze and animate.
-
-1) First, carefully look at the photo and understand who or what is there:
-   - Number of people, their ages (baby, child, adult, elderly)
-   - Relationships (e.g., couple, family, parent and child, friends)
-   - Any pets or animals (dog, cat, horse, etc.)
-   - Any key environment details (indoors, outdoors, beach, water, trees, city lights, etc.)
-
-2) Then, propose 5–7 different animation options for this exact photo, following the rules:
-   - Camera locked to the original framing
-   - Subtle–medium realistic motion only
-   - No big pose changes or unrealistic actions
-   - Emotionally meaningful moments that would feel special as part of a family gift video
-
-3) Use the classification context if available to further specialize your ideas.
-
-${
-  contextHints
-    ? `Classification context for this photo: ${contextHints}.
-       Use this as a hint, but you must still base your ideas on what you actually see.`
-    : "No additional classification context is available for this photo."
+OUTPUT FORMAT (strict JSON, no prose, no code fences):
+{
+  "suggestions": [
+    {
+      "id": "machine_friendly_id",
+      "label": "Short, neutral, cinematic label",
+      "description": "One short sentence in plain language.",
+      "prompt": "2–4 sentences: detailed Kling-like generation prompt mentioning the actual subjects, emotions, subtle–medium motion, camera locked, and concrete elements in this photo."
+    }
+  ]
 }
 
-Return ONLY the JSON object with a "suggestions" array as described in the system instructions.
-`;
+RULES:
+- "id": lowercase with underscores only (no spaces)
+- "label": max ~60 characters, NOT generic like "Natural motion". Say what is happening (e.g. "Baby's sleepy smile in mother's arms" not "Soft smile")
+- "description": one sentence, plain language
+- "prompt": 2–4 sentences, mention visible subjects, mood, subtle motion, camera locked`;
+
+    const contextHints = [
+      category ? `Photo category: ${category}` : null,
+      typeof peopleCount === 'number' ? `Number of people visible: ${peopleCount}` : null,
+      hasAnimal ? `Contains an animal or pet` : null,
+      hasBaby ? `Contains a baby or infant` : null,
+    ].filter(Boolean).join('. ');
+
+    const userPrompt = `Look closely at this photo and analyze what you see.
+
+CLASSIFICATION HINTS (use these as starting points, but base your ideas on what you actually observe):
+${contextHints || 'No classification hints available.'}
+
+YOUR TASK:
+1. Identify who/what is in the photo: people (ages, relationships), animals, environment details
+2. Propose exactly 5–7 distinct animation suggestions tailored specifically to THIS photo
+3. Each suggestion must reference concrete elements you can see (not generic descriptions)
+4. Follow the variety rules: include facial expression, eyes/gaze, body micro-movement, environment, and connection moments (if multiple people)
+
+Return ONLY the JSON object with a "suggestions" array. Do not include any explanation or code fences.`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -216,8 +185,8 @@ Return ONLY the JSON object with a "suggestions" array as described in the syste
             ],
           },
         ],
-        max_tokens: 1500,
-        temperature: 0.7,
+        max_tokens: 600,
+        temperature: 0.6,
         response_format: { type: "json_object" },
       }),
     });
