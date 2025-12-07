@@ -46,6 +46,7 @@ const Animations = () => {
   const [previewPhoto, setPreviewPhoto] = useState<{ id: string; url: string } | null>(null);
   const [suggestionsByPhoto, setSuggestionsByPhoto] = useState<Record<string, AnimationSuggestion[]>>({});
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [invokeError, setInvokeError] = useState<string | null>(null);
 
   useEffect(() => {
     const raw = localStorage.getItem("mc_uploadedPhotos");
@@ -74,8 +75,10 @@ const Animations = () => {
       // Fetch AI suggestions for each photo
       const fetchSuggestions = async () => {
         setLoadingSuggestions(true);
+        setInvokeError(null);
         try {
           const nextSuggestionsByPhoto: Record<string, AnimationSuggestion[]> = {};
+
           for (const photo of photos) {
             const { data, error } = await supabase.functions.invoke("suggest-animations", {
               body: {
@@ -88,18 +91,38 @@ const Animations = () => {
             });
 
             if (error) {
-              console.error("Error fetching suggestions for photo", photo.id, error);
+              console.error("Supabase invoke error for photo", photo.id, error);
+              setInvokeError(
+                `Supabase error for photo ${photo.id}: ` +
+                  (typeof error === "string" ? error : JSON.stringify(error))
+              );
               continue;
             }
 
-            const suggestions = (data?.suggestions as AnimationSuggestion[]) ?? [];
-            if (suggestions.length > 0) {
-              nextSuggestionsByPhoto[photo.id] = suggestions;
+            if (!data) {
+              console.error("No data returned from suggest-animations for photo", photo.id);
+              setInvokeError(`No data returned from suggest-animations for photo ${photo.id}`);
+              continue;
             }
+
+            const suggestions = (data as any).suggestions as AnimationSuggestion[] | undefined;
+
+            if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
+              console.warn("Empty suggestions array for photo", photo.id, data);
+              continue;
+            }
+
+            nextSuggestionsByPhoto[photo.id] = suggestions;
           }
+
           setSuggestionsByPhoto(nextSuggestionsByPhoto);
         } catch (err) {
           console.error("Unexpected error fetching animation suggestions", err);
+          setInvokeError(
+            `Unexpected error in fetchSuggestions: ${
+              err instanceof Error ? err.message : JSON.stringify(err)
+            }`
+          );
         } finally {
           setLoadingSuggestions(false);
         }
@@ -191,6 +214,11 @@ const Animations = () => {
             {loadingSuggestions && (
               <p className="text-sm text-muted-foreground mb-4">
                 Fetching AI animation ideas for your photos…
+              </p>
+            )}
+            {invokeError && (
+              <p className="text-xs text-red-500 mb-2">
+                Debug – suggest-animations error: {invokeError}
               </p>
             )}
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
