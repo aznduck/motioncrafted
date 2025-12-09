@@ -8,45 +8,105 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { GripVertical } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
-import { X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-type AnimationSuggestion = {
-  id: string;
-  label: string;
-  description: string;
-  prompt: string;
-};
-
-interface PhotoWithAnimation {
+interface PhotoItem {
   id: string;
   url: string;
-  animationId: string;
-  animationLabel: string;
-  klingPrompt: string;
 }
 
-const ANIMATION_OPTIONS = [
-  "Soft smile & subtle movement",
-  "Blink & gentle eye movement",
-  "Look at camera",
-  "Look at other person in photo",
-  "Gentle head tilt",
-  "Warm, emotional expression",
-  "Natural idle motion",
+const ANIMATION_STYLES = [
+  { value: "gentle", label: "Gentle & Subtle", description: "Soft smiles, gentle blinks, subtle movement" },
+  { value: "warm", label: "Warm & Emotional", description: "Heartfelt expressions, tender moments" },
+  { value: "lively", label: "Lively & Playful", description: "More animated expressions, playful energy" },
+  { value: "cinematic", label: "Cinematic & Dramatic", description: "Bold movements, dramatic lighting effects" },
 ];
+
+interface SortablePhotoProps {
+  photo: PhotoItem;
+  index: number;
+}
+
+const SortablePhoto = ({ photo, index }: SortablePhotoProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: photo.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 p-3 rounded-lg border-2 border-border bg-card shadow-soft"
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground transition-colors touch-none"
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="h-5 w-5" />
+      </button>
+
+      <span className="text-sm font-medium text-muted-foreground w-6">
+        {index + 1}
+      </span>
+
+      <div
+        className="relative w-[80px] md:w-[100px] aspect-[4/5] rounded-lg bg-muted overflow-hidden flex items-center justify-center border border-border cursor-pointer hover:opacity-80 transition-opacity"
+        onClick={() => window.open(photo.url, "_blank")}
+        title="Click to view full image"
+      >
+        <img
+          src={photo.url}
+          alt={`Photo ${index + 1}`}
+          className="max-w-full max-h-full object-contain"
+        />
+      </div>
+    </div>
+  );
+};
 
 const Animations = () => {
   const navigate = useNavigate();
-  const [photoAnimations, setPhotoAnimations] = useState<PhotoWithAnimation[]>([]);
-  const [previewPhoto, setPreviewPhoto] = useState<{ id: string; url: string } | null>(null);
-  const [suggestionsByPhoto, setSuggestionsByPhoto] = useState<Record<string, AnimationSuggestion[]>>({});
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [invokeError, setInvokeError] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [animationStyle, setAnimationStyle] = useState("");
+  const [specialMessage, setSpecialMessage] = useState("");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     const raw = localStorage.getItem("mc_uploadedPhotos");
@@ -56,262 +116,165 @@ const Animations = () => {
     }
 
     try {
-      const photos = JSON.parse(raw);
-      if (!Array.isArray(photos) || photos.length < 5) {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length < 5) {
         navigate("/upload", { replace: true });
         return;
       }
 
-      setPhotoAnimations(
-        photos.map((p: any) => ({
+      setPhotos(
+        parsed.map((p: any) => ({
           id: p.id,
           url: p.url,
-          animationId: "",
-          animationLabel: "",
-          klingPrompt: "",
         }))
       );
-
-      // Fetch AI suggestions for each photo
-      const fetchSuggestions = async () => {
-        setLoadingSuggestions(true);
-        setInvokeError(null);
-        try {
-          const nextSuggestionsByPhoto: Record<string, AnimationSuggestion[]> = {};
-
-          for (const photo of photos) {
-            const { data, error } = await supabase.functions.invoke("suggest-animations", {
-              body: {
-                photoUrl: photo.url,
-                category: photo.category ?? null,
-                peopleCount: photo.peopleCount ?? null,
-                hasAnimal: photo.hasAnimal ?? false,
-                hasBaby: photo.hasBaby ?? false,
-              },
-            });
-
-            if (error) {
-              console.error("Supabase invoke error for photo", photo.id, error);
-              setInvokeError(
-                `Supabase error for photo ${photo.id}: ` +
-                  (typeof error === "string" ? error : JSON.stringify(error))
-              );
-              continue;
-            }
-
-            if (!data) {
-              console.error("No data returned from suggest-animations for photo", photo.id);
-              setInvokeError(`No data returned from suggest-animations for photo ${photo.id}`);
-              continue;
-            }
-
-            const suggestions = (data as any).suggestions as AnimationSuggestion[] | undefined;
-
-            if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
-              console.warn("Empty suggestions array for photo", photo.id, data);
-              continue;
-            }
-
-            nextSuggestionsByPhoto[photo.id] = suggestions;
-          }
-
-          setSuggestionsByPhoto(nextSuggestionsByPhoto);
-        } catch (err) {
-          console.error("Unexpected error fetching animation suggestions", err);
-          setInvokeError(
-            `Unexpected error in fetchSuggestions: ${
-              err instanceof Error ? err.message : JSON.stringify(err)
-            }`
-          );
-        } finally {
-          setLoadingSuggestions(false);
-        }
-      };
-
-      fetchSuggestions();
-    } catch (e) {
-      console.error("Failed to parse photos:", e);
+    } catch {
       navigate("/upload", { replace: true });
     }
   }, [navigate]);
 
-  const handleAnimationChange = (photoId: string, selectedValue: string) => {
-    setPhotoAnimations((prev) =>
-      prev.map((p) => {
-        if (p.id !== photoId) return p;
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
 
-        const aiSuggestions = suggestionsByPhoto[photoId] || [];
-        const matched = aiSuggestions.find((s) => s.id === selectedValue);
-
-        if (matched) {
-          return {
-            ...p,
-            animationId: matched.id,
-            animationLabel: matched.label,
-            klingPrompt: matched.prompt,
-          };
-        }
-
-        // Fallback to static label
-        return {
-          ...p,
-          animationId: selectedValue,
-          animationLabel: selectedValue,
-          klingPrompt: "",
-        };
-      })
-    );
+    if (over && active.id !== over.id) {
+      setPhotos((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
   };
-
-  const hasAISuggestionsFor = (photoId: string) => {
-    const ai = suggestionsByPhoto[photoId] || [];
-    return ai.length > 0;
-  };
-
-  const allSelected = photoAnimations.every((p) => p.animationId !== "");
 
   const handleContinue = () => {
-    localStorage.setItem("mc_photoAnimations", JSON.stringify(photoAnimations));
+    const selectedStyle = ANIMATION_STYLES.find((s) => s.value === animationStyle);
+    
+    const orderData = {
+      photos: photos.map((p, idx) => ({
+        id: p.id,
+        url: p.url,
+        order: idx + 1,
+      })),
+      animationStyle: {
+        value: animationStyle,
+        label: selectedStyle?.label || "",
+        description: selectedStyle?.description || "",
+      },
+      specialMessage: specialMessage.trim() || null,
+    };
+
+    localStorage.setItem("mc_photoAnimations", JSON.stringify(orderData));
     navigate("/checkout");
   };
 
+  const canContinue = animationStyle !== "";
+
   return (
     <div className="min-h-screen bg-background py-8 md:py-12">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left side - Title and CTA */}
-          <div className="lg:w-2/5 space-y-6">
-            <div className="space-y-4">
-              <h1 className="text-3xl md:text-4xl font-display text-foreground">
-                Step 2 –
-                Choose Animations for Each Photo
-              </h1>
-              <p className="text-muted-foreground">
-                Pick how you'd like each photo to come to life. You'll select one animation style per photo.
-              </p>
-            </div>
-
-            <div className="pt-4">
-              <Button
-                onClick={handleContinue}
-                disabled={!allSelected}
-                variant="hero"
-                size="xl"
-                className="w-full lg:w-auto"
-              >
-                Continue to Order Summary
-              </Button>
-              {!allSelected && (
-                <p className="text-sm text-destructive mt-2">
-                  Please select an animation for every photo.
-                </p>
-              )}
-            </div>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
+        <div className="space-y-8">
+          {/* Header */}
+          <div className="space-y-4 text-center">
+            <h1 className="text-3xl md:text-4xl font-display text-foreground">
+              Step 2 – Customize Your Video
+            </h1>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Arrange your photos in the order you'd like them to appear, choose an animation style, and add an optional message.
+            </p>
           </div>
 
-          {/* Right side - Photo list with dropdowns */}
-          <div className="lg:w-3/5">
-            {loadingSuggestions && (
-              <p className="text-sm text-muted-foreground mb-4">
-                Fetching AI animation ideas for your photos…
+          {/* Animation Style Dropdown */}
+          <div className="bg-card border-2 border-border rounded-xl p-6 shadow-soft">
+            <label className="block text-sm font-medium text-foreground mb-3">
+              Animation Style <span className="text-destructive">*</span>
+            </label>
+            <Select value={animationStyle} onValueChange={setAnimationStyle}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose an animation style..." />
+              </SelectTrigger>
+              <SelectContent>
+                {ANIMATION_STYLES.map((style) => (
+                  <SelectItem key={style.value} value={style.value}>
+                    <span className="font-medium">{style.label}</span>
+                    <span className="text-muted-foreground ml-2 text-sm">
+                      – {style.description}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Photo Order */}
+          <div className="bg-card border-2 border-border rounded-xl p-6 shadow-soft">
+            <label className="block text-sm font-medium text-foreground mb-3">
+              Photo Order
+            </label>
+            <p className="text-sm text-muted-foreground mb-4">
+              Drag and drop to reorder your photos. They will appear in this sequence in your video.
+            </p>
+
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={photos.map((p) => p.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {photos.map((photo, index) => (
+                    <SortablePhoto
+                      key={photo.id}
+                      photo={photo}
+                      index={index}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
+
+          {/* Special Message */}
+          <div className="bg-card border-2 border-border rounded-xl p-6 shadow-soft">
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Special Message{" "}
+              <span className="text-muted-foreground font-normal">(Optional – Recommended)</span>
+            </label>
+            <p className="text-sm text-muted-foreground mb-3">
+              Add a heartfelt message to display at the end of your video.
+            </p>
+            <Textarea
+              placeholder="e.g., Happy 50th Anniversary, Mom & Dad! Here's to 50 more years of love..."
+              value={specialMessage}
+              onChange={(e) => setSpecialMessage(e.target.value)}
+              className="min-h-[100px] resize-none"
+              maxLength={300}
+            />
+            <p className="text-xs text-muted-foreground mt-2 text-right">
+              {specialMessage.length}/300
+            </p>
+          </div>
+
+          {/* Continue Button */}
+          <div className="flex flex-col items-center gap-3 pt-4">
+            <Button
+              onClick={handleContinue}
+              disabled={!canContinue}
+              variant="hero"
+              size="xl"
+              className="w-full sm:w-auto"
+            >
+              Continue to Order Summary
+            </Button>
+            {!canContinue && (
+              <p className="text-sm text-destructive">
+                Please select an animation style to continue.
               </p>
             )}
-            {invokeError && (
-              <p className="text-xs text-red-500 mb-2">
-                Debug – suggest-animations error: {invokeError}
-              </p>
-            )}
-            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-              {photoAnimations.map((photo, index) => {
-                const aiSuggestionsForPhoto = suggestionsByPhoto[photo.id] || [];
-                const hasAISuggestions = aiSuggestionsForPhoto.length > 0;
-
-                const optionsToRender = hasAISuggestions
-                  ? aiSuggestionsForPhoto.map((s) => ({
-                      value: s.id,
-                      label: s.label,
-                    }))
-                  : ANIMATION_OPTIONS.map((label) => ({
-                      value: label,
-                      label,
-                    }));
-
-                return (
-                  <div
-                    key={photo.id}
-                    className="flex items-center gap-4 p-4 rounded-lg border-2 border-border bg-card shadow-soft"
-                  >
-                    {/* Dropdown */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Photo {index + 1}
-                      </p>
-                      {/* Debug block */}
-                      <div className="mb-1">
-                        <p className="text-[10px] text-gray-400">
-                          Debug – Source: {hasAISuggestions ? "AI" : "STATIC"} • Photo ID: {photo.id}
-                        </p>
-                        <p className="text-[10px] text-gray-400">
-                          Options: {optionsToRender.map((o) => o.label).join(" | ")}
-                        </p>
-                      </div>
-                      <Select
-                        value={photo.animationId}
-                        onValueChange={(value) => handleAnimationChange(photo.id, value)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select animation…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {optionsToRender.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Photo thumbnail */}
-                    <div 
-                      className="relative w-[100px] md:w-[140px] aspect-[4/5] rounded-xl bg-muted overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border-2 border-border"
-                      onClick={() => window.open(photo.url, "_blank")}
-                      title="Click to view full image"
-                    >
-                      <img
-                        src={photo.url}
-                        alt={`Photo ${index + 1}`}
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         </div>
       </div>
-
-      {/* Full-size preview modal */}
-      <Dialog open={!!previewPhoto} onOpenChange={() => setPreviewPhoto(null)}>
-        <DialogContent className="relative w-full max-w-[min(90vw,640px)] bg-background/95 border-none shadow-xl rounded-2xl flex flex-col items-center justify-center gap-4 p-4 [&>button]:hidden">
-          <button
-            onClick={() => setPreviewPhoto(null)}
-            className="absolute -right-2 -top-2 z-10 p-2 rounded-full bg-background/90 hover:bg-background transition-colors shadow-lg"
-          >
-            <X className="h-5 w-5 text-foreground" />
-          </button>
-          {previewPhoto && (
-            <div className="w-full aspect-[4/5] max-w-full rounded-2xl bg-[#111111] flex items-center justify-center overflow-hidden">
-              <img
-                src={previewPhoto.url}
-                alt="Preview"
-                className="max-w-full max-h-full object-contain"
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
