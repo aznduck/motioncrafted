@@ -27,9 +27,17 @@ const Upload = () => {
   const [cropQueue, setCropQueue] = useState<QueuedFile[]>([]);
   const [currentFileForCrop, setCurrentFileForCrop] = useState<QueuedFile | null>(null);
   
+  // Use ref to track if crop modal is open (avoids stale closure issues)
+  const isCroppingRef = useRef(false);
+  
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const rollInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    isCroppingRef.current = currentFileForCrop !== null;
+  }, [currentFileForCrop]);
 
   // Generate unique Order ID once on mount, or reuse existing one
   const [mcOrderId] = useState(() => {
@@ -47,12 +55,10 @@ const Upload = () => {
     if (hasInitialized) return;
     
     const saved = localStorage.getItem("mc_uploadedPhotos");
-    console.log("[Upload] Loading from localStorage:", saved);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          console.log("[Upload] Setting photos from storage:", parsed.length);
           setUploadedPhotos(parsed.map((p: any) => ({
             id: p.id,
             url: p.url,
@@ -88,7 +94,6 @@ const Upload = () => {
       link.href = "https://ucarecdn.com/libs/widget/3.x/uploadcare.min.css";
       document.head.appendChild(link);
     }
-    // Don't remove on cleanup - causes issues with React Strict Mode remounting
   }, []);
 
   // Handle single file (camera) - opens crop modal directly
@@ -97,14 +102,14 @@ const Upload = () => {
     setCurrentFileForCrop({ file, objectUrl });
   };
 
-  // Handle multiple files - adds to queue
+  // Handle multiple files - adds to queue using ref to avoid stale closure
   const handleMultipleFilesSelect = (files: File[]) => {
     const queuedFiles: QueuedFile[] = files.map((file) => ({
       file,
       objectUrl: URL.createObjectURL(file),
     }));
 
-    if (currentFileForCrop === null && queuedFiles.length > 0) {
+    if (!isCroppingRef.current && queuedFiles.length > 0) {
       // Start cropping the first file immediately
       setCurrentFileForCrop(queuedFiles[0]);
       setCropQueue(queuedFiles.slice(1));
@@ -114,15 +119,19 @@ const Upload = () => {
     }
   };
 
-  // Move to next file in queue
+  // Move to next file in queue using functional update to get latest state
   const processNextInQueue = () => {
-    if (cropQueue.length > 0) {
-      const [next, ...rest] = cropQueue;
-      setCurrentFileForCrop(next);
-      setCropQueue(rest);
-    } else {
-      setCurrentFileForCrop(null);
-    }
+    setCropQueue((prevQueue) => {
+      if (prevQueue.length > 0) {
+        const [next, ...rest] = prevQueue;
+        // Use setTimeout to avoid state batching issues
+        setTimeout(() => setCurrentFileForCrop(next), 0);
+        return rest;
+      } else {
+        setTimeout(() => setCurrentFileForCrop(null), 0);
+        return [];
+      }
+    });
   };
 
   // Setup camera input handler (single file)
@@ -184,22 +193,20 @@ const Upload = () => {
     const tempId = Date.now().toString() + Math.random();
     const fileName = currentFileForCrop?.file.name || "cropped-image.jpg";
     
-    // Add loading placeholder
+    // Add loading placeholder immediately
     const loadingPhoto: UploadedPhoto = {
       id: tempId,
       url: "",
       loading: true,
     };
-    console.log("[Upload] Adding loading placeholder:", tempId);
-    setUploadedPhotos((prev) => {
-      console.log("[Upload] Current photos before add:", prev.length);
-      return [...prev, loadingPhoto];
-    });
+    setUploadedPhotos((prev) => [...prev, loadingPhoto]);
 
-    // Clean up current file and move to next
+    // Clean up current file object URL
     if (currentFileForCrop) {
       URL.revokeObjectURL(currentFileForCrop.objectUrl);
     }
+    
+    // Move to next file in queue
     processNextInQueue();
 
     try {
@@ -216,36 +223,25 @@ const Upload = () => {
         );
 
         uploadedFile.done(async (fileInfo: any) => {
-          console.log("[Upload] Uploadcare done:", fileInfo.uuid);
-          // OpenAI classification disabled - using placeholder data
-          const classification = {
-            category: null as string | null,
-            peopleCount: null as number | null,
+          const newPhoto: UploadedPhoto = {
+            id: fileInfo.uuid,
+            url: fileInfo.cdnUrl,
+            loading: false,
+            category: null,
+            peopleCount: null,
             hasAnimal: false,
             hasBaby: false,
           };
           
-          const newPhoto = {
-            id: fileInfo.uuid,
-            url: fileInfo.cdnUrl,
-            loading: false,
-            category: classification.category,
-            peopleCount: classification.peopleCount,
-            hasAnimal: classification.hasAnimal,
-            hasBaby: classification.hasBaby,
-          };
-          
           // Replace loading placeholder with actual image
           setUploadedPhotos((prev) => {
-            console.log("[Upload] Replacing placeholder, prev count:", prev.length);
             const updated = prev.map((photo) =>
               photo.id === tempId ? newPhoto : photo
             );
-            // Persist photos to localStorage for animations page
+            // Persist completed photos to localStorage
             const photosForStorage = updated
               .filter((p) => !p.loading)
               .map((p) => ({ id: p.id, url: p.url }));
-            console.log("[Upload] Saving to localStorage:", photosForStorage.length);
             localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
             return updated;
           });
@@ -253,22 +249,41 @@ const Upload = () => {
 
         uploadedFile.fail(() => {
           // Remove loading placeholder on error
-          setUploadedPhotos((prev) => prev.filter((photo) => photo.id !== tempId));
+          setUploadedPhotos((prev) => {
+            const updated = prev.filter((photo) => photo.id !== tempId);
+            const photosForStorage = updated
+              .filter((p) => !p.loading)
+              .map((p) => ({ id: p.id, url: p.url }));
+            localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
+            return updated;
+          });
         });
       } else {
         // Fallback to local URL if Uploadcare not loaded
         const localUrl = URL.createObjectURL(croppedBlob);
-        setUploadedPhotos((prev) =>
-          prev.map((photo) =>
+        setUploadedPhotos((prev) => {
+          const updated = prev.map((photo) =>
             photo.id === tempId
               ? { id: tempId, url: localUrl, loading: false }
               : photo
-          )
-        );
+          );
+          const photosForStorage = updated
+            .filter((p) => !p.loading)
+            .map((p) => ({ id: p.id, url: p.url }));
+          localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
+          return updated;
+        });
       }
     } catch (error) {
       console.error("Upload error:", error);
-      setUploadedPhotos((prev) => prev.filter((photo) => photo.id !== tempId));
+      setUploadedPhotos((prev) => {
+        const updated = prev.filter((photo) => photo.id !== tempId);
+        const photosForStorage = updated
+          .filter((p) => !p.loading)
+          .map((p) => ({ id: p.id, url: p.url }));
+        localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
+        return updated;
+      });
     }
   };
 
