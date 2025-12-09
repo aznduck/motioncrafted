@@ -71,20 +71,24 @@ const Upload = () => {
   }, [hasInitialized]);
 
   useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js";
-    script.async = true;
-    document.body.appendChild(script);
+    // Only add script if not already present
+    const existingScript = document.querySelector('script[src*="uploadcare.full.min.js"]');
+    const existingLink = document.querySelector('link[href*="uploadcare.min.css"]');
+    
+    if (!existingScript) {
+      const script = document.createElement("script");
+      script.src = "https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
 
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "https://ucarecdn.com/libs/widget/3.x/uploadcare.min.css";
-    document.head.appendChild(link);
-
-    return () => {
-      document.body.removeChild(script);
-      document.head.removeChild(link);
-    };
+    if (!existingLink) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://ucarecdn.com/libs/widget/3.x/uploadcare.min.css";
+      document.head.appendChild(link);
+    }
+    // Don't remove on cleanup - causes issues with React Strict Mode remounting
   }, []);
 
   // Handle single file (camera) - opens crop modal directly
