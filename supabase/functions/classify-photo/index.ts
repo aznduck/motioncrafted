@@ -1,7 +1,7 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+// OpenAI integration has been disabled for rebuild
+// const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,89 +39,19 @@ serve(async (req) => {
       );
     }
 
-    console.log('Classifying photo:', photoUrl);
+    console.log('classify-photo called (OpenAI disabled):', photoUrl);
 
-    // Call OpenAI Vision API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `You are a photo classifier for an AI photo-to-video product. Classify this photo into one of these categories:
-- portrait_single
-- portrait_couple
-- group
-- animal_pet
-- animal_horse
-- landscape
-- water
-- vehicle
-- baby
-- other
-
-Return ONLY valid JSON with this shape: { "category": string, "peopleCount": number, "hasAnimal": boolean, "hasBaby": boolean }`
-              },
-              {
-                type: 'image_url',
-                image_url: { url: photoUrl }
-              }
-            ]
-          }
-        ],
-        max_tokens: 150
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to classify photo' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    const data = await response.json();
-    const assistantMessage = data.choices?.[0]?.message?.content;
-
-    if (!assistantMessage) {
-      console.error('No response content from OpenAI');
-      return new Response(
-        JSON.stringify({ error: 'Failed to classify photo' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    console.log('OpenAI raw response:', assistantMessage);
-
-    // Parse the JSON response from the assistant
-    // Remove any markdown code blocks if present
-    const cleanedResponse = assistantMessage
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
-      .trim();
-
-    const classification = JSON.parse(cleanedResponse);
-
-    console.log('Classification result:', classification);
+    // Return placeholder mock data - OpenAI integration disabled for rebuild
+    const mockClassification = {
+      status: "openai_disabled",
+      category: "other",
+      peopleCount: 0,
+      hasAnimal: false,
+      hasBaby: false,
+    };
 
     return new Response(
-      JSON.stringify(classification),
+      JSON.stringify(mockClassification),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -129,11 +59,17 @@ Return ONLY valid JSON with this shape: { "category": string, "peopleCount": num
     );
 
   } catch (err) {
-    console.error('Error classifying photo:', err);
+    console.error('Error in classify-photo function:', err);
     return new Response(
-      JSON.stringify({ error: 'Failed to classify photo' }),
+      JSON.stringify({ 
+        status: "openai_disabled",
+        category: "other",
+        peopleCount: 0,
+        hasAnimal: false,
+        hasBaby: false,
+      }),
       {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );

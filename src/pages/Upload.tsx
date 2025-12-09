@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Camera, Image, FolderOpen, Plus, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CropModal from "@/components/CropModal";
-import { supabase } from "@/integrations/supabase/client";
+// OpenAI classification disabled - supabase import removed
 
 interface UploadedPhoto {
   id: string;
@@ -201,33 +201,13 @@ const Upload = () => {
         );
 
         uploadedFile.done(async (fileInfo: any) => {
-          // Call classify-photo edge function
-          let classification = {
+          // OpenAI classification disabled - using placeholder data
+          const classification = {
             category: null as string | null,
             peopleCount: null as number | null,
             hasAnimal: false,
             hasBaby: false,
           };
-          
-          try {
-            const { data, error } = await supabase.functions.invoke('classify-photo', {
-              body: { photoUrl: fileInfo.cdnUrl },
-            });
-            
-            if (error) {
-              console.error('Classification error:', error);
-            } else if (data) {
-              classification = {
-                category: data.category ?? null,
-                peopleCount: data.peopleCount ?? null,
-                hasAnimal: data.hasAnimal ?? false,
-                hasBaby: data.hasBaby ?? false,
-              };
-              console.log('Photo classified:', classification);
-            }
-          } catch (err) {
-            console.error('Failed to classify photo:', err);
-          }
           
           const newPhoto = {
             id: fileInfo.uuid,
@@ -239,7 +219,7 @@ const Upload = () => {
             hasBaby: classification.hasBaby,
           };
           
-          // Replace loading placeholder with actual image + classification
+          // Replace loading placeholder with actual image
           setUploadedPhotos((prev) => {
             const updated = prev.map((photo) =>
               photo.id === tempId ? newPhoto : photo
@@ -251,19 +231,6 @@ const Upload = () => {
             localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
             return updated;
           });
-          
-          // Store classification in localStorage
-          const existingRaw = localStorage.getItem("mc_photoClassifications");
-          const existing = existingRaw ? JSON.parse(existingRaw) : [];
-          existing.push({
-            id: fileInfo.uuid,
-            url: fileInfo.cdnUrl,
-            category: classification.category,
-            peopleCount: classification.peopleCount,
-            hasAnimal: classification.hasAnimal,
-            hasBaby: classification.hasBaby,
-          });
-          localStorage.setItem("mc_photoClassifications", JSON.stringify(existing));
         });
 
         uploadedFile.fail(() => {
@@ -431,15 +398,9 @@ const Upload = () => {
                       </>
                     )}
                   </div>
-                  {/* Classification label */}
+                  {/* Photo status label - classification disabled */}
                   <p className="text-[10px] text-muted-foreground leading-tight text-center truncate">
-                    {photo.loading ? (
-                      "Uploading..."
-                    ) : photo.category ? (
-                      `${photo.category} • ${photo.peopleCount ?? 0}p • ${photo.hasAnimal ? "🐾" : ""} ${photo.hasBaby ? "👶" : ""}`
-                    ) : (
-                      "Classifying..."
-                    )}
+                    {photo.loading ? "Uploading..." : "Ready"}
                   </p>
                 </div>
               ))}
