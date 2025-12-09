@@ -40,13 +40,19 @@ const Upload = () => {
     return newId;
   });
 
-  // Load existing photos from localStorage on mount
+  // Load existing photos from localStorage on mount ONLY ONCE
+  const [hasInitialized, setHasInitialized] = useState(false);
+  
   useEffect(() => {
+    if (hasInitialized) return;
+    
     const saved = localStorage.getItem("mc_uploadedPhotos");
+    console.log("[Upload] Loading from localStorage:", saved);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          console.log("[Upload] Setting photos from storage:", parsed.length);
           setUploadedPhotos(parsed.map((p: any) => ({
             id: p.id,
             url: p.url,
@@ -61,7 +67,8 @@ const Upload = () => {
         console.error("Failed to parse saved photos:", e);
       }
     }
-  }, []);
+    setHasInitialized(true);
+  }, [hasInitialized]);
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -179,7 +186,11 @@ const Upload = () => {
       url: "",
       loading: true,
     };
-    setUploadedPhotos((prev) => [...prev, loadingPhoto]);
+    console.log("[Upload] Adding loading placeholder:", tempId);
+    setUploadedPhotos((prev) => {
+      console.log("[Upload] Current photos before add:", prev.length);
+      return [...prev, loadingPhoto];
+    });
 
     // Clean up current file and move to next
     if (currentFileForCrop) {
@@ -201,6 +212,7 @@ const Upload = () => {
         );
 
         uploadedFile.done(async (fileInfo: any) => {
+          console.log("[Upload] Uploadcare done:", fileInfo.uuid);
           // OpenAI classification disabled - using placeholder data
           const classification = {
             category: null as string | null,
@@ -221,6 +233,7 @@ const Upload = () => {
           
           // Replace loading placeholder with actual image
           setUploadedPhotos((prev) => {
+            console.log("[Upload] Replacing placeholder, prev count:", prev.length);
             const updated = prev.map((photo) =>
               photo.id === tempId ? newPhoto : photo
             );
@@ -228,6 +241,7 @@ const Upload = () => {
             const photosForStorage = updated
               .filter((p) => !p.loading)
               .map((p) => ({ id: p.id, url: p.url }));
+            console.log("[Upload] Saving to localStorage:", photosForStorage.length);
             localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
             return updated;
           });
