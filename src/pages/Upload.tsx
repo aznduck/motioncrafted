@@ -237,9 +237,17 @@ const Upload = () => {
       return;
     }
     // Save to localStorage before navigating
-    savePhotosToLocalStorage(uploadedPhotos);
-    localStorage.setItem("mc_photoCount", String(readyPhotos.length));
-    navigate("/animations");
+    const count = readyPhotos.length;
+    localStorage.setItem("mc_photoCount", String(count));
+    localStorage.setItem("mc_uploadedPhotos", JSON.stringify(
+      readyPhotos.map((p) => ({
+        id: p.id,
+        url: p.uploadedUrl || p.previewUrl,
+        name: p.name,
+      }))
+    ));
+    console.log("Navigating to /checkout with mc_photoCount =", count);
+    navigate("/checkout");
   };
 
   // ===== DERIVED STATE =====
