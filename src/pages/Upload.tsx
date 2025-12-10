@@ -64,20 +64,22 @@ const Upload = () => {
   }, []);
 
   useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js";
-    script.async = true;
-    document.body.appendChild(script);
+    // Only add script if not already present
+    if (!document.querySelector('script[src*="uploadcare"]')) {
+      const script = document.createElement("script");
+      script.src = "https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
 
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "https://ucarecdn.com/libs/widget/3.x/uploadcare.min.css";
-    document.head.appendChild(link);
+    if (!document.querySelector('link[href*="uploadcare"]')) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://ucarecdn.com/libs/widget/3.x/uploadcare.min.css";
+      document.head.appendChild(link);
+    }
 
-    return () => {
-      document.body.removeChild(script);
-      document.head.removeChild(link);
-    };
+    // Don't remove script/stylesheet on cleanup - prevents remounting issues
   }, []);
 
   // Handle single file (camera) - opens crop modal directly
