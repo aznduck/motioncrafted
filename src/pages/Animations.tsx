@@ -81,14 +81,14 @@ const SortablePhoto = ({ photo, index }: SortablePhotoProps) => {
       </span>
 
       <div
-        className="relative w-[60px] md:w-[80px] aspect-square rounded-lg bg-muted overflow-hidden flex items-center justify-center border-2 border-border shadow-soft cursor-pointer hover:opacity-80 transition-opacity"
+        className="relative w-[80px] md:w-[100px] aspect-[4/5] rounded-lg bg-muted overflow-hidden flex items-center justify-center border border-border cursor-pointer hover:opacity-80 transition-opacity"
         onClick={() => window.open(photo.url, "_blank")}
         title="Click to view full image"
       >
         <img
           src={photo.url}
           alt={`Photo ${index + 1}`}
-          className="w-full h-full object-contain"
+          className="max-w-full max-h-full object-contain"
         />
       </div>
     </div>
