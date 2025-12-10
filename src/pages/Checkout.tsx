@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import Header from "@/components/Header";
@@ -16,7 +16,7 @@ const checkoutSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required").max(100, "Name must be less than 100 characters"),
   email: z.string().trim().email("Please enter a valid email address").max(255, "Email must be less than 255 characters"),
   phoneNumber: z.string().trim().max(20, "Phone number must be less than 20 characters").optional(),
-  notes: z.string().trim().max(500, "Notes must be less than 500 characters").optional(),
+  
 });
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
@@ -171,22 +171,6 @@ const Checkout = () => {
                   )}
                 </div>
 
-                {/* Notes */}
-                <div className="space-y-2">
-                  <Label htmlFor="notes" className="text-foreground">
-                    Notes <span className="text-muted-foreground text-sm">(optional)</span>
-                  </Label>
-                  <Textarea
-                    id="notes"
-                    {...register("notes")}
-                    placeholder="Any special instructions or requests..."
-                    rows={4}
-                    className={errors.notes ? "border-destructive" : ""}
-                  />
-                  {errors.notes && (
-                    <p className="text-sm text-destructive">{errors.notes.message}</p>
-                  )}
-                </div>
 
                 {/* Payment Button */}
                 <Button
