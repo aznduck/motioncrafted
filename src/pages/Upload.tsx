@@ -22,11 +22,12 @@ interface QueuedFile {
 // Helper to load photos from localStorage - defined outside component
 const loadPhotosFromStorage = (): UploadedPhoto[] => {
   const saved = localStorage.getItem("mc_uploadedPhotos");
+  console.log("[INIT] Loading from localStorage:", saved);
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((p: any) => ({
+        const photos = parsed.map((p: any) => ({
           id: p.id,
           url: p.url,
           loading: false,
@@ -35,19 +36,37 @@ const loadPhotosFromStorage = (): UploadedPhoto[] => {
           hasAnimal: p.hasAnimal ?? false,
           hasBaby: p.hasBaby ?? false,
         }));
+        console.log("[INIT] Returning", photos.length, "photos from storage");
+        return photos;
       }
     } catch (e) {
       console.error("Failed to parse saved photos:", e);
     }
   }
+  console.log("[INIT] No saved photos, returning empty array");
   return [];
 };
 
+// Track component instance for debugging
+let instanceCounter = 0;
+
 const Upload = () => {
+  const instanceId = useRef(++instanceCounter);
+  console.log(`[Upload #${instanceId.current}] Component rendering`);
+  
   const navigate = useNavigate();
   
   // Initialize photos from localStorage - always read fresh on mount
-  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>(loadPhotosFromStorage);
+  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>(() => {
+    const initial = loadPhotosFromStorage();
+    console.log(`[Upload #${instanceId.current}] Initial state:`, initial.length, "photos");
+    return initial;
+  });
+  
+  // Log whenever uploadedPhotos changes
+  useEffect(() => {
+    console.log(`[Upload #${instanceId.current}] uploadedPhotos changed:`, uploadedPhotos.length, "photos", uploadedPhotos.map(p => ({ id: p.id.slice(0, 8), loading: p.loading })));
+  }, [uploadedPhotos]);
   
   // Multi-file crop queue state
   const [cropQueue, setCropQueue] = useState<QueuedFile[]>([]);
@@ -194,6 +213,7 @@ const Upload = () => {
 
   // Upload cropped image to Uploadcare
   const uploadCroppedImage = async (croppedBlob: Blob) => {
+    console.log(`[Upload #${instanceId.current}] uploadCroppedImage called`);
     const tempId = Date.now().toString() + Math.random();
     const fileName = currentFileForCrop?.file.name || "cropped-image.jpg";
     
@@ -203,7 +223,11 @@ const Upload = () => {
       url: "",
       loading: true,
     };
-    setUploadedPhotos((prev) => [...prev, loadingPhoto]);
+    console.log(`[Upload #${instanceId.current}] Adding loading placeholder with tempId:`, tempId.slice(0, 8));
+    setUploadedPhotos((prev) => {
+      console.log(`[Upload #${instanceId.current}] setUploadedPhotos (add loading): prev has`, prev.length, "photos");
+      return [...prev, loadingPhoto];
+    });
 
     // Clean up current file object URL
     if (currentFileForCrop) {
@@ -238,7 +262,9 @@ const Upload = () => {
           };
           
           // Replace loading placeholder with actual image
+          console.log(`[Upload] Uploadcare done, replacing tempId:`, tempId.slice(0, 8), "with uuid:", fileInfo.uuid.slice(0, 8));
           setUploadedPhotos((prev) => {
+            console.log(`[Upload] setUploadedPhotos (done): prev has`, prev.length, "photos");
             const updated = prev.map((photo) =>
               photo.id === tempId ? newPhoto : photo
             );
@@ -246,6 +272,7 @@ const Upload = () => {
             const photosForStorage = updated
               .filter((p) => !p.loading)
               .map((p) => ({ id: p.id, url: p.url }));
+            console.log(`[Upload] Saving to localStorage:`, photosForStorage.length, "photos");
             localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
             return updated;
           });
