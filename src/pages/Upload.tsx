@@ -21,7 +21,36 @@ interface QueuedFile {
 
 const Upload = () => {
   const navigate = useNavigate();
-  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
+  
+  // Use ref to track initialization - prevents race conditions with state
+  const hasInitializedRef = useRef(false);
+  
+  // Initialize photos from localStorage synchronously in useState initializer
+  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>(() => {
+    if (hasInitializedRef.current) return [];
+    hasInitializedRef.current = true;
+    
+    const saved = localStorage.getItem("mc_uploadedPhotos");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((p: any) => ({
+            id: p.id,
+            url: p.url,
+            loading: false,
+            category: p.category ?? null,
+            peopleCount: p.peopleCount ?? null,
+            hasAnimal: p.hasAnimal ?? false,
+            hasBaby: p.hasBaby ?? false,
+          }));
+        }
+      } catch (e) {
+        console.error("Failed to parse saved photos:", e);
+      }
+    }
+    return [];
+  });
   
   // Multi-file crop queue state
   const [cropQueue, setCropQueue] = useState<QueuedFile[]>([]);
@@ -47,34 +76,6 @@ const Upload = () => {
     localStorage.setItem("mc_orderId", newId);
     return newId;
   });
-
-  // Load existing photos from localStorage on mount ONLY ONCE
-  const [hasInitialized, setHasInitialized] = useState(false);
-  
-  useEffect(() => {
-    if (hasInitialized) return;
-    
-    const saved = localStorage.getItem("mc_uploadedPhotos");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setUploadedPhotos(parsed.map((p: any) => ({
-            id: p.id,
-            url: p.url,
-            loading: false,
-            category: p.category ?? null,
-            peopleCount: p.peopleCount ?? null,
-            hasAnimal: p.hasAnimal ?? false,
-            hasBaby: p.hasBaby ?? false,
-          })));
-        }
-      } catch (e) {
-        console.error("Failed to parse saved photos:", e);
-      }
-    }
-    setHasInitialized(true);
-  }, [hasInitialized]);
 
   useEffect(() => {
     // Only add script if not already present
