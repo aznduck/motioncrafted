@@ -1,8 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Camera, Image, FolderOpen, Plus, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CropModal from "@/components/CropModal";
-// OpenAI classification disabled - supabase import removed
 
 interface UploadedPhoto {
   id: string;
@@ -27,9 +26,19 @@ const Upload = () => {
   const [cropQueue, setCropQueue] = useState<QueuedFile[]>([]);
   const [currentFileForCrop, setCurrentFileForCrop] = useState<QueuedFile | null>(null);
   
+  // Use refs for values needed in callbacks to avoid stale closures
+  const cropQueueRef = useRef<QueuedFile[]>([]);
+  cropQueueRef.current = cropQueue;
+  
+  const currentFileRef = useRef<QueuedFile | null>(null);
+  currentFileRef.current = currentFileForCrop;
+  
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const rollInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
+  
+  // Track if initial load has happened
+  const hasLoadedRef = useRef(false);
 
   // Generate unique Order ID once on mount, or reuse existing one
   const [mcOrderId] = useState(() => {
@@ -40,8 +49,11 @@ const Upload = () => {
     return newId;
   });
 
-  // Load existing photos from localStorage on mount
+  // Load existing photos from localStorage on mount - only once
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+    
     const saved = localStorage.getItem("mc_uploadedPhotos");
     if (saved) {
       try {
@@ -63,8 +75,8 @@ const Upload = () => {
     }
   }, []);
 
+  // Load Uploadcare script once
   useEffect(() => {
-    // Only add script if not already present
     if (!document.querySelector('script[src*="uploadcare"]')) {
       const script = document.createElement("script");
       script.src = "https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js";
@@ -78,50 +90,56 @@ const Upload = () => {
       link.href = "https://ucarecdn.com/libs/widget/3.x/uploadcare.min.css";
       document.head.appendChild(link);
     }
-
-    // Don't remove script/stylesheet on cleanup - prevents remounting issues
   }, []);
 
-  // Handle single file (camera) - opens crop modal directly
-  const handleSingleFileSelect = (file: File) => {
-    const objectUrl = URL.createObjectURL(file);
-    setCurrentFileForCrop({ file, objectUrl });
-  };
+  // Persist photos to localStorage helper
+  const persistPhotos = useCallback((photos: UploadedPhoto[]) => {
+    const photosForStorage = photos
+      .filter((p) => !p.loading)
+      .map((p) => ({ id: p.id, url: p.url }));
+    localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
+  }, []);
 
-  // Handle multiple files - adds to queue
-  const handleMultipleFilesSelect = (files: File[]) => {
-    const queuedFiles: QueuedFile[] = files.map((file) => ({
-      file,
-      objectUrl: URL.createObjectURL(file),
-    }));
-
-    if (currentFileForCrop === null && queuedFiles.length > 0) {
-      // Start cropping the first file immediately
-      setCurrentFileForCrop(queuedFiles[0]);
-      setCropQueue(queuedFiles.slice(1));
-    } else {
-      // Add to existing queue
-      setCropQueue((prev) => [...prev, ...queuedFiles]);
-    }
-  };
-
-  // Move to next file in queue
-  const processNextInQueue = () => {
-    if (cropQueue.length > 0) {
-      const [next, ...rest] = cropQueue;
+  // Move to next file in queue - using refs to avoid stale closure
+  const processNextInQueue = useCallback(() => {
+    const queue = cropQueueRef.current;
+    if (queue.length > 0) {
+      const [next, ...rest] = queue;
       setCurrentFileForCrop(next);
       setCropQueue(rest);
     } else {
       setCurrentFileForCrop(null);
     }
-  };
+  }, []);
 
-  // Setup camera input handler (single file)
+  // Handle single file (camera) - opens crop modal directly
+  const handleSingleFileSelect = useCallback((file: File) => {
+    const objectUrl = URL.createObjectURL(file);
+    setCurrentFileForCrop({ file, objectUrl });
+  }, []);
+
+  // Handle multiple files - adds to queue
+  const handleMultipleFilesSelect = useCallback((files: File[]) => {
+    const queuedFiles: QueuedFile[] = files.map((file) => ({
+      file,
+      objectUrl: URL.createObjectURL(file),
+    }));
+
+    if (currentFileRef.current === null && queuedFiles.length > 0) {
+      setCurrentFileForCrop(queuedFiles[0]);
+      setCropQueue(queuedFiles.slice(1));
+    } else {
+      setCropQueue((prev) => [...prev, ...queuedFiles]);
+    }
+  }, []);
+
+  // Setup file input handlers - using stable callbacks
   useEffect(() => {
-    const input = cameraInputRef.current;
-    if (!input) return;
+    const cameraInput = cameraInputRef.current;
+    const rollInput = rollInputRef.current;
+    const filesInput = filesInputRef.current;
 
-    const handleChange = (e: Event) => {
+    const handleCameraChange = (e: Event) => {
       const target = e.target as HTMLInputElement;
       const files = target.files;
       if (files && files.length > 0) {
@@ -130,16 +148,7 @@ const Upload = () => {
       }
     };
 
-    input.addEventListener("change", handleChange);
-    return () => input.removeEventListener("change", handleChange);
-  }, []);
-
-  // Setup camera roll input handler (multiple files)
-  useEffect(() => {
-    const input = rollInputRef.current;
-    if (!input) return;
-
-    const handleChange = (e: Event) => {
+    const handleMultiChange = (e: Event) => {
       const target = e.target as HTMLInputElement;
       const files = target.files;
       if (files && files.length > 0) {
@@ -148,32 +157,21 @@ const Upload = () => {
       }
     };
 
-    input.addEventListener("change", handleChange);
-    return () => input.removeEventListener("change", handleChange);
-  }, [currentFileForCrop, cropQueue]);
+    cameraInput?.addEventListener("change", handleCameraChange);
+    rollInput?.addEventListener("change", handleMultiChange);
+    filesInput?.addEventListener("change", handleMultiChange);
 
-  // Setup local files input handler (multiple files)
-  useEffect(() => {
-    const input = filesInputRef.current;
-    if (!input) return;
-
-    const handleChange = (e: Event) => {
-      const target = e.target as HTMLInputElement;
-      const files = target.files;
-      if (files && files.length > 0) {
-        handleMultipleFilesSelect(Array.from(files));
-        target.value = "";
-      }
+    return () => {
+      cameraInput?.removeEventListener("change", handleCameraChange);
+      rollInput?.removeEventListener("change", handleMultiChange);
+      filesInput?.removeEventListener("change", handleMultiChange);
     };
-
-    input.addEventListener("change", handleChange);
-    return () => input.removeEventListener("change", handleChange);
-  }, [currentFileForCrop, cropQueue]);
+  }, [handleSingleFileSelect, handleMultipleFilesSelect]);
 
   // Upload cropped image to Uploadcare
-  const uploadCroppedImage = async (croppedBlob: Blob) => {
+  const uploadCroppedImage = useCallback(async (croppedBlob: Blob) => {
     const tempId = Date.now().toString() + Math.random();
-    const fileName = currentFileForCrop?.file.name || "cropped-image.jpg";
+    const fileName = currentFileRef.current?.file.name || "cropped-image.jpg";
     
     // Add loading placeholder
     const loadingPhoto: UploadedPhoto = {
@@ -184,13 +182,12 @@ const Upload = () => {
     setUploadedPhotos((prev) => [...prev, loadingPhoto]);
 
     // Clean up current file and move to next
-    if (currentFileForCrop) {
-      URL.revokeObjectURL(currentFileForCrop.objectUrl);
+    if (currentFileRef.current) {
+      URL.revokeObjectURL(currentFileRef.current.objectUrl);
     }
     processNextInQueue();
 
     try {
-      // Create a File from the cropped Blob
       const croppedFile = new File([croppedBlob], fileName, {
         type: "image/jpeg",
       });
@@ -202,104 +199,95 @@ const Upload = () => {
           { publicKey: "31b0edbe0c35c307eaa8" }
         );
 
-        uploadedFile.done(async (fileInfo: any) => {
-          // OpenAI classification disabled - using placeholder data
-          const classification = {
-            category: null as string | null,
-            peopleCount: null as number | null,
+        uploadedFile.done((fileInfo: any) => {
+          const newPhoto: UploadedPhoto = {
+            id: fileInfo.uuid,
+            url: fileInfo.cdnUrl,
+            loading: false,
+            category: null,
+            peopleCount: null,
             hasAnimal: false,
             hasBaby: false,
           };
           
-          const newPhoto = {
-            id: fileInfo.uuid,
-            url: fileInfo.cdnUrl,
-            loading: false,
-            category: classification.category,
-            peopleCount: classification.peopleCount,
-            hasAnimal: classification.hasAnimal,
-            hasBaby: classification.hasBaby,
-          };
-          
-          // Replace loading placeholder with actual image
           setUploadedPhotos((prev) => {
             const updated = prev.map((photo) =>
               photo.id === tempId ? newPhoto : photo
             );
-            // Persist photos to localStorage for animations page
-            const photosForStorage = updated
-              .filter((p) => !p.loading)
-              .map((p) => ({ id: p.id, url: p.url }));
-            localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
+            // Persist immediately after successful upload
+            persistPhotos(updated);
             return updated;
           });
         });
 
         uploadedFile.fail(() => {
-          // Remove loading placeholder on error
-          setUploadedPhotos((prev) => prev.filter((photo) => photo.id !== tempId));
+          setUploadedPhotos((prev) => {
+            const updated = prev.filter((photo) => photo.id !== tempId);
+            persistPhotos(updated);
+            return updated;
+          });
         });
       } else {
-        // Fallback to local URL if Uploadcare not loaded
+        // Fallback - also persist to localStorage
         const localUrl = URL.createObjectURL(croppedBlob);
-        setUploadedPhotos((prev) =>
-          prev.map((photo) =>
+        setUploadedPhotos((prev) => {
+          const updated = prev.map((photo) =>
             photo.id === tempId
               ? { id: tempId, url: localUrl, loading: false }
               : photo
-          )
-        );
+          );
+          persistPhotos(updated);
+          return updated;
+        });
       }
     } catch (error) {
       console.error("Upload error:", error);
-      setUploadedPhotos((prev) => prev.filter((photo) => photo.id !== tempId));
+      setUploadedPhotos((prev) => {
+        const updated = prev.filter((photo) => photo.id !== tempId);
+        persistPhotos(updated);
+        return updated;
+      });
     }
-  };
+  }, [processNextInQueue, persistPhotos]);
 
   // Cancel crop - skip current file and move to next
-  const handleCropCancel = () => {
-    if (currentFileForCrop) {
-      URL.revokeObjectURL(currentFileForCrop.objectUrl);
+  const handleCropCancel = useCallback(() => {
+    if (currentFileRef.current) {
+      URL.revokeObjectURL(currentFileRef.current.objectUrl);
     }
     processNextInQueue();
-  };
+  }, [processNextInQueue]);
 
-  const triggerCamera = () => {
+  const triggerCamera = useCallback(() => {
     cameraInputRef.current?.click();
-  };
+  }, []);
 
-  const triggerCameraRoll = () => {
+  const triggerCameraRoll = useCallback(() => {
     rollInputRef.current?.click();
-  };
+  }, []);
 
-  const triggerFiles = () => {
+  const triggerFiles = useCallback(() => {
     filesInputRef.current?.click();
-  };
+  }, []);
 
-  const handleDeletePhoto = (id: string) => {
+  const handleDeletePhoto = useCallback((id: string) => {
     setUploadedPhotos((prev) => {
       const updated = prev.filter((photo) => photo.id !== id);
-      // Persist deletion to localStorage
-      const photosForStorage = updated
-        .filter((p) => !p.loading)
-        .map((p) => ({ id: p.id, url: p.url }));
-      localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
+      persistPhotos(updated);
       return updated;
     });
-  };
+  }, [persistPhotos]);
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     const validPhotos = uploadedPhotos.filter((p) => !p.loading);
     const count = validPhotos.length;
     
-    // Guard: don't navigate if fewer than 5 fully-uploaded photos
     if (count < 5) {
       alert("Please wait until all photos finish uploading. You need at least 5 completed photos to continue.");
       return;
     }
     
     localStorage.setItem('mc_photoCount', String(count));
-    // Save photos with all data for animations page
     const photosForStorage = validPhotos.map((p) => ({
       id: p.id,
       url: p.url,
@@ -310,10 +298,11 @@ const Upload = () => {
     }));
     localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
     navigate('/animations');
-  };
+  }, [uploadedPhotos, navigate]);
 
-  // Calculate remaining photos in queue for display
-  const queueCount = cropQueue.length + (currentFileForCrop ? 1 : 0);
+  const completePhotos = uploadedPhotos.filter((p) => !p.loading);
+  const hasAnyLoading = uploadedPhotos.some((p) => p.loading);
+  const isDisabled = completePhotos.length < 5 || hasAnyLoading;
 
   return (
     <div className="min-h-screen bg-background py-8 md:py-12">
@@ -408,7 +397,6 @@ const Upload = () => {
                       </>
                     )}
                   </div>
-                  {/* Photo status label - classification disabled */}
                   <p className="text-[10px] text-muted-foreground leading-tight text-center truncate">
                     {photo.loading ? "Uploading..." : "Ready"}
                   </p>
@@ -419,20 +407,13 @@ const Upload = () => {
 
           {/* Continue Button */}
           <div className="pt-6 flex justify-center">
-            {(() => {
-              const completePhotos = uploadedPhotos.filter((p) => !p.loading);
-              const hasAnyLoading = uploadedPhotos.some((p) => p.loading);
-              const isDisabled = completePhotos.length < 5 || hasAnyLoading;
-              return (
-                <button
-                  onClick={handleContinue}
-                  disabled={isDisabled}
-                  className="px-10 py-4 rounded-lg bg-primary text-primary-foreground font-semibold text-lg shadow-premium hover:shadow-soft hover:bg-primary/90 transition-smooth disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary disabled:hover:shadow-premium"
-                >
-                  {hasAnyLoading ? "Uploading..." : "Continue"}
-                </button>
-              );
-            })()}
+            <button
+              onClick={handleContinue}
+              disabled={isDisabled}
+              className="px-10 py-4 rounded-lg bg-primary text-primary-foreground font-semibold text-lg shadow-premium hover:shadow-soft hover:bg-primary/90 transition-smooth disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary disabled:hover:shadow-premium"
+            >
+              {hasAnyLoading ? "Uploading..." : "Continue"}
+            </button>
           </div>
         </div>
       </div>
