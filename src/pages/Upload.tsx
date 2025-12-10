@@ -19,38 +19,35 @@ interface QueuedFile {
   objectUrl: string;
 }
 
+// Helper to load photos from localStorage - defined outside component
+const loadPhotosFromStorage = (): UploadedPhoto[] => {
+  const saved = localStorage.getItem("mc_uploadedPhotos");
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((p: any) => ({
+          id: p.id,
+          url: p.url,
+          loading: false,
+          category: p.category ?? null,
+          peopleCount: p.peopleCount ?? null,
+          hasAnimal: p.hasAnimal ?? false,
+          hasBaby: p.hasBaby ?? false,
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to parse saved photos:", e);
+    }
+  }
+  return [];
+};
+
 const Upload = () => {
   const navigate = useNavigate();
   
-  // Use ref to track initialization - prevents race conditions with state
-  const hasInitializedRef = useRef(false);
-  
-  // Initialize photos from localStorage synchronously in useState initializer
-  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>(() => {
-    if (hasInitializedRef.current) return [];
-    hasInitializedRef.current = true;
-    
-    const saved = localStorage.getItem("mc_uploadedPhotos");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((p: any) => ({
-            id: p.id,
-            url: p.url,
-            loading: false,
-            category: p.category ?? null,
-            peopleCount: p.peopleCount ?? null,
-            hasAnimal: p.hasAnimal ?? false,
-            hasBaby: p.hasBaby ?? false,
-          }));
-        }
-      } catch (e) {
-        console.error("Failed to parse saved photos:", e);
-      }
-    }
-    return [];
-  });
+  // Initialize photos from localStorage - always read fresh on mount
+  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>(loadPhotosFromStorage);
   
   // Multi-file crop queue state
   const [cropQueue, setCropQueue] = useState<QueuedFile[]>([]);
