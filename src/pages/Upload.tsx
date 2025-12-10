@@ -96,14 +96,14 @@ const Upload = () => {
     }
   }, []);
 
-  // Handle single file (camera) - opens crop modal directly
-  const handleSingleFileSelect = (file: File) => {
-    const objectUrl = URL.createObjectURL(file);
-    setCurrentFileForCrop({ file, objectUrl });
-  };
+  // Handle single file (camera) - opens crop modal directly (now uses ref)
+
+  // Store handlers in refs to avoid stale closures and effect re-runs
+  const handleMultipleFilesSelectRef = useRef<(files: File[]) => void>(() => {});
+  const handleSingleFileSelectRef = useRef<(file: File) => void>(() => {});
 
   // Handle multiple files - adds to queue using ref to avoid stale closure
-  const handleMultipleFilesSelect = (files: File[]) => {
+  handleMultipleFilesSelectRef.current = (files: File[]) => {
     const queuedFiles: QueuedFile[] = files.map((file) => ({
       file,
       objectUrl: URL.createObjectURL(file),
@@ -117,6 +117,12 @@ const Upload = () => {
       // Add to existing queue
       setCropQueue((prev) => [...prev, ...queuedFiles]);
     }
+  };
+
+  // Store single file handler in ref
+  handleSingleFileSelectRef.current = (file: File) => {
+    const objectUrl = URL.createObjectURL(file);
+    setCurrentFileForCrop({ file, objectUrl });
   };
 
   // Move to next file in queue using functional update to get latest state
@@ -134,7 +140,7 @@ const Upload = () => {
     });
   };
 
-  // Setup camera input handler (single file)
+  // Setup camera input handler (single file) - empty deps, uses ref for handler
   useEffect(() => {
     const input = cameraInputRef.current;
     if (!input) return;
@@ -143,7 +149,7 @@ const Upload = () => {
       const target = e.target as HTMLInputElement;
       const files = target.files;
       if (files && files.length > 0) {
-        handleSingleFileSelect(files[0]);
+        handleSingleFileSelectRef.current(files[0]);
         target.value = "";
       }
     };
@@ -152,7 +158,7 @@ const Upload = () => {
     return () => input.removeEventListener("change", handleChange);
   }, []);
 
-  // Setup camera roll input handler (multiple files)
+  // Setup camera roll input handler (multiple files) - empty deps, uses ref for handler
   useEffect(() => {
     const input = rollInputRef.current;
     if (!input) return;
@@ -161,16 +167,16 @@ const Upload = () => {
       const target = e.target as HTMLInputElement;
       const files = target.files;
       if (files && files.length > 0) {
-        handleMultipleFilesSelect(Array.from(files));
+        handleMultipleFilesSelectRef.current(Array.from(files));
         target.value = "";
       }
     };
 
     input.addEventListener("change", handleChange);
     return () => input.removeEventListener("change", handleChange);
-  }, [currentFileForCrop, cropQueue]);
+  }, []);
 
-  // Setup local files input handler (multiple files)
+  // Setup local files input handler (multiple files) - empty deps, uses ref for handler
   useEffect(() => {
     const input = filesInputRef.current;
     if (!input) return;
@@ -179,14 +185,14 @@ const Upload = () => {
       const target = e.target as HTMLInputElement;
       const files = target.files;
       if (files && files.length > 0) {
-        handleMultipleFilesSelect(Array.from(files));
+        handleMultipleFilesSelectRef.current(Array.from(files));
         target.value = "";
       }
     };
 
     input.addEventListener("change", handleChange);
     return () => input.removeEventListener("change", handleChange);
-  }, [currentFileForCrop, cropQueue]);
+  }, []);
 
   // Upload cropped image to Uploadcare
   const uploadCroppedImage = async (croppedBlob: Blob) => {
