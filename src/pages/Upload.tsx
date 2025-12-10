@@ -275,7 +275,15 @@ const Upload = () => {
   };
 
   const handleDeletePhoto = (id: string) => {
-    setUploadedPhotos((prev) => prev.filter((photo) => photo.id !== id));
+    setUploadedPhotos((prev) => {
+      const updated = prev.filter((photo) => photo.id !== id);
+      // Persist deletion to localStorage
+      const photosForStorage = updated
+        .filter((p) => !p.loading)
+        .map((p) => ({ id: p.id, url: p.url }));
+      localStorage.setItem("mc_uploadedPhotos", JSON.stringify(photosForStorage));
+      return updated;
+    });
   };
 
   const handleContinue = () => {
