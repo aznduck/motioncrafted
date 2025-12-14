@@ -246,8 +246,7 @@ const Upload = () => {
         name: p.name,
       }))
     ));
-    console.log("Navigating to /checkout with mc_photoCount =", count);
-    navigate("/checkout");
+    navigate("/animations");
   };
 
   // ===== DERIVED STATE =====
