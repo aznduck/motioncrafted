@@ -1,15 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Check } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -33,11 +26,29 @@ interface PhotoItem {
   url: string;
 }
 
-const ANIMATION_STYLES = [
-  { value: "gentle", label: "Gentle & Subtle", description: "Soft smiles, gentle blinks, subtle movement" },
-  { value: "warm", label: "Warm & Emotional", description: "Heartfelt expressions, tender moments" },
-  { value: "lively", label: "Lively & Playful", description: "More animated expressions, playful energy" },
-  { value: "cinematic", label: "Cinematic & Dramatic", description: "Bold movements, dramatic lighting effects" },
+type VideoVibe = "cinematic_emotional" | "warm_human" | "joyful_alive" | "quiet_timeless";
+
+const VIDEO_VIBES: { value: VideoVibe; title: string; description: string }[] = [
+  {
+    value: "cinematic_emotional",
+    title: "Cinematic & Emotional",
+    description: "A cinematic, film-like feel with emotional movement and a sense of story.",
+  },
+  {
+    value: "warm_human",
+    title: "Warm & Human",
+    description: "Natural, lifelike motion that feels personal, comforting, and real.",
+  },
+  {
+    value: "joyful_alive",
+    title: "Joyful & Alive",
+    description: "Brighter, more expressive energy that highlights happiness and celebration.",
+  },
+  {
+    value: "quiet_timeless",
+    title: "Quiet & Timeless",
+    description: "Almost still — calm, respectful, and timeless.",
+  },
 ];
 
 interface SortablePhotoProps {
@@ -95,10 +106,51 @@ const SortablePhoto = ({ photo, index }: SortablePhotoProps) => {
   );
 };
 
+interface VibeCardProps {
+  vibe: { value: VideoVibe; title: string; description: string };
+  isSelected: boolean;
+  onSelect: () => void;
+}
+
+const VibeCard = ({ vibe, isSelected, onSelect }: VibeCardProps) => {
+  return (
+    <button
+      onClick={onSelect}
+      className={`
+        relative w-full text-left p-5 rounded-xl border-2 transition-all duration-200
+        ${isSelected 
+          ? "border-primary bg-primary/5 shadow-soft" 
+          : "border-border bg-card hover:border-primary/40 hover:shadow-soft"
+        }
+      `}
+    >
+      <div className="flex items-start gap-4">
+        <div
+          className={`
+            flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors
+            ${isSelected 
+              ? "border-primary bg-primary" 
+              : "border-muted-foreground/40 bg-background"
+            }
+          `}
+        >
+          {isSelected && <Check className="w-4 h-4 text-primary-foreground" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-foreground text-lg">{vibe.title}</h3>
+          <p className="text-muted-foreground text-sm mt-1 leading-relaxed">
+            {vibe.description}
+          </p>
+        </div>
+      </div>
+    </button>
+  );
+};
+
 const Animations = () => {
   const navigate = useNavigate();
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
-  const [animationStyle, setAnimationStyle] = useState("");
+  const [videoVibe, setVideoVibe] = useState<VideoVibe>("cinematic_emotional");
   const [specialMessage, setSpecialMessage] = useState("");
 
   const sensors = useSensors(
@@ -146,7 +198,7 @@ const Animations = () => {
   };
 
   const handleContinue = () => {
-    const selectedStyle = ANIMATION_STYLES.find((s) => s.value === animationStyle);
+    const selectedVibe = VIDEO_VIBES.find((v) => v.value === videoVibe);
     
     const orderData = {
       photos: photos.map((p, idx) => ({
@@ -154,10 +206,11 @@ const Animations = () => {
         url: p.url,
         order: idx + 1,
       })),
-      animationStyle: {
-        value: animationStyle,
-        label: selectedStyle?.label || "",
-        description: selectedStyle?.description || "",
+      video_vibe: videoVibe,
+      vibeDetails: {
+        value: videoVibe,
+        title: selectedVibe?.title || "",
+        description: selectedVibe?.description || "",
       },
       specialMessage: specialMessage.trim() || null,
     };
@@ -165,8 +218,6 @@ const Animations = () => {
     localStorage.setItem("mc_photoAnimations", JSON.stringify(orderData));
     navigate("/checkout");
   };
-
-  const canContinue = animationStyle !== "";
 
   return (
     <div className="min-h-screen bg-background py-8 md:py-12">
@@ -178,30 +229,29 @@ const Animations = () => {
               Step 2 – Customize Your Video
             </h1>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Arrange your photos in the order you'd like them to appear, choose an animation style, and add an optional message.
+              Set the mood for your memory, arrange your photos, and add a personal message.
             </p>
           </div>
 
-          {/* Animation Style Dropdown */}
+          {/* Video Vibe Selector */}
           <div className="bg-card border-2 border-border rounded-xl p-6 shadow-soft">
-            <label className="block text-sm font-medium text-foreground mb-3">
-              Animation Style <span className="text-destructive">*</span>
-            </label>
-            <Select value={animationStyle} onValueChange={setAnimationStyle}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Choose an animation style..." />
-              </SelectTrigger>
-              <SelectContent>
-                {ANIMATION_STYLES.map((style) => (
-                  <SelectItem key={style.value} value={style.value}>
-                    <span className="font-medium">{style.label}</span>
-                    <span className="text-muted-foreground ml-2 text-sm">
-                      – {style.description}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <h2 className="text-xl font-display text-foreground mb-2">
+              Choose the vibe of your video
+            </h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              This sets the mood, motion, and music for your memory.
+            </p>
+            
+            <div className="space-y-3">
+              {VIDEO_VIBES.map((vibe) => (
+                <VibeCard
+                  key={vibe.value}
+                  vibe={vibe}
+                  isSelected={videoVibe === vibe.value}
+                  onSelect={() => setVideoVibe(vibe.value)}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Photo Order */}
@@ -260,18 +310,12 @@ const Animations = () => {
           <div className="flex flex-col items-center gap-3 pt-4">
             <Button
               onClick={handleContinue}
-              disabled={!canContinue}
               variant="hero"
               size="xl"
               className="w-full sm:w-auto"
             >
               Continue to Order Summary
             </Button>
-            {!canContinue && (
-              <p className="text-sm text-destructive">
-                Please select an animation style to continue.
-              </p>
-            )}
           </div>
         </div>
       </div>
