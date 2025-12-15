@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { GripVertical, Check } from "lucide-react";
+import { GripVertical } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -106,47 +113,6 @@ const SortablePhoto = ({ photo, index }: SortablePhotoProps) => {
   );
 };
 
-interface VibeCardProps {
-  vibe: { value: VideoVibe; title: string; description: string };
-  isSelected: boolean;
-  onSelect: () => void;
-}
-
-const VibeCard = ({ vibe, isSelected, onSelect }: VibeCardProps) => {
-  return (
-    <button
-      onClick={onSelect}
-      className={`
-        relative w-full text-left p-5 rounded-xl border-2 transition-all duration-200
-        ${isSelected 
-          ? "border-primary bg-primary/5 shadow-soft" 
-          : "border-border bg-card hover:border-primary/40 hover:shadow-soft"
-        }
-      `}
-    >
-      <div className="flex items-start gap-4">
-        <div
-          className={`
-            flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors
-            ${isSelected 
-              ? "border-primary bg-primary" 
-              : "border-muted-foreground/40 bg-background"
-            }
-          `}
-        >
-          {isSelected && <Check className="w-4 h-4 text-primary-foreground" />}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-foreground text-lg">{vibe.title}</h3>
-          <p className="text-muted-foreground text-sm mt-1 leading-relaxed">
-            {vibe.description}
-          </p>
-        </div>
-      </div>
-    </button>
-  );
-};
-
 const Animations = () => {
   const navigate = useNavigate();
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
@@ -219,6 +185,8 @@ const Animations = () => {
     navigate("/checkout");
   };
 
+  const selectedVibe = VIDEO_VIBES.find((v) => v.value === videoVibe);
+
   return (
     <div className="min-h-screen bg-background py-8 md:py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
@@ -238,20 +206,28 @@ const Animations = () => {
             <h2 className="text-xl font-display text-foreground mb-2">
               Choose the vibe of your video
             </h2>
-            <p className="text-sm text-muted-foreground mb-6">
+            <p className="text-sm text-muted-foreground mb-4">
               This sets the mood, motion, and music for your memory.
             </p>
             
-            <div className="space-y-3">
-              {VIDEO_VIBES.map((vibe) => (
-                <VibeCard
-                  key={vibe.value}
-                  vibe={vibe}
-                  isSelected={videoVibe === vibe.value}
-                  onSelect={() => setVideoVibe(vibe.value)}
-                />
-              ))}
-            </div>
+            <Select value={videoVibe} onValueChange={(value) => setVideoVibe(value as VideoVibe)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a vibe..." />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border">
+                {VIDEO_VIBES.map((vibe) => (
+                  <SelectItem key={vibe.value} value={vibe.value}>
+                    {vibe.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {selectedVibe && (
+              <p className="text-sm text-muted-foreground mt-3 italic">
+                {selectedVibe.description}
+              </p>
+            )}
           </div>
 
           {/* Photo Order */}
