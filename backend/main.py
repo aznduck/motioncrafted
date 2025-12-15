@@ -43,11 +43,35 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Detailed health check"""
-    return {
+    from app.core.database import get_db
+
+    health_status = {
         "status": "healthy",
-        "database": "connected",  # TODO: Add actual DB check
-        "storage": "connected",   # TODO: Add actual storage check
+        "database": "unknown",
+        "storage": "unknown",
     }
+
+    # Test database connection
+    try:
+        db = get_db()
+        # Try a simple query
+        result = db.table("admin_users").select("count", count="exact").execute()
+        health_status["database"] = "connected"
+    except Exception as e:
+        health_status["database"] = f"error: {str(e)}"
+        health_status["status"] = "unhealthy"
+
+    # Test storage connection
+    try:
+        db = get_db()
+        # Try to list buckets
+        buckets = db.storage.list_buckets()
+        health_status["storage"] = "connected"
+    except Exception as e:
+        health_status["storage"] = f"error: {str(e)}"
+        health_status["status"] = "unhealthy"
+
+    return health_status
 
 # Import and include routers (will be added as we build)
 # from app.routes.customer import orders as customer_orders
