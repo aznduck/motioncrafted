@@ -17,8 +17,9 @@ class Settings(BaseSettings):
 
     # External APIs
     OPENAI_API_KEY: str
-    KLING_API_KEY: str
-    KLING_API_URL: str = "https://api.kling.ai/v1"
+    KLING_API_KEY: str  # Kling Access Key
+    KLING_SECRET_KEY: str  # Kling Secret Key
+    KLING_API_URL: str = "https://api-singapore.klingai.com/v1"
 
     # JWT Authentication
     JWT_SECRET_KEY: str
