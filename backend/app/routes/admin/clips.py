@@ -2,13 +2,13 @@
 Admin clip review and streaming endpoints
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
 from datetime import datetime
 from app.schemas.admin import (
     ClipApproveRequest, ClipRejectRequest, ClipActionResponse
 )
-from app.core.security import require_admin
+from app.core.security import require_admin, decode_access_token
 from app.core.database import get_db
 from app.services.storage_service import storage_service
 import io
@@ -63,7 +63,7 @@ async def approve_clip(
     order_id = photo_result.data['order_id']
 
     # Count total clips and approved clips for this order
-    all_clips_result = db.table('clips').select('clips.id, clips.review_status', count='exact').select('*, photos!inner(order_id)').eq('photos.order_id', order_id).execute()
+    all_clips_result = db.table('clips').select('id, review_status, photos!inner(order_id)', count='exact').eq('photos.order_id', order_id).execute()
     all_clips = all_clips_result.data or []
 
     total_clips = len(all_clips)
@@ -152,7 +152,7 @@ async def reject_clip(
 @router.get("/clips/{clip_id}/stream")
 async def stream_clip(
     clip_id: str,
-    current_user: dict = Depends(require_admin)
+    token: str = Query(...),
 ):
     """
     Stream a video clip for preview in admin dashboard
@@ -163,6 +163,13 @@ async def stream_clip(
     Returns:
         Video file stream (MP4)
     """
+    payload = decode_access_token(token)
+    if payload.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="admin access required lol",
+        )
+
     db = get_db()
 
     # Fetch clip

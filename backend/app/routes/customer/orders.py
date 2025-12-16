@@ -15,6 +15,41 @@ from app.services.order_processor import order_processor
 router = APIRouter()
 
 
+@router.post("/orders/{order_id}/test-process")
+async def test_process_order(order_id: str, background_tasks: BackgroundTasks):
+    """
+    TEST ENDPOINT: Manually trigger order processing
+
+    This bypasses payment and starts processing immediately.
+    Use this for testing the full pipeline without Stripe integration.
+    """
+    order = db_helpers.get_order_by_id(order_id)
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found"
+        )
+
+    if order["status"] == "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Order already completed"
+        )
+
+    # Update payment status to paid and order status to pending
+    db_helpers.update_order_status(order_id, "pending")
+
+    # Trigger background processing
+    background_tasks.add_task(order_processor.process_order, order_id)
+
+    return {
+        "message": "Order processing started!",
+        "order_id": order_id,
+        "note": "This is a test endpoint. In production, processing starts after payment confirmation."
+    }
+
+
 @router.post("/orders", response_model=OrderResponse)
 async def create_order(
     # Form fields

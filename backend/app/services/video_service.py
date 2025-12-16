@@ -194,6 +194,7 @@ class VideoService:
             '-crf', '23',
             '-pix_fmt', 'yuv420p',
             '-r', '30',
+            'vsync', 'cfr',
             '-y',  # Overwrite output file
             str(output_file)
         ]
@@ -309,22 +310,26 @@ class VideoService:
 
         output_file = temp_path / "final.mp4"
 
-        # Create concat file for FFmpeg
-        concat_file = temp_path / "concat.txt"
-        with open(concat_file, 'w') as f:
-            f.write(f"file '{clips_video.absolute()}'\n")
-            f.write(f"file '{message_video.absolute()}'\n")
 
         # Concatenate
         ffmpeg_cmd = [
             'ffmpeg',
-            '-f', 'concat',
-            '-safe', '0',
-            '-i', str(concat_file),
-            '-c', 'copy',
+            '-i', str(clips_video),
+            '-i', str(message_video),
+            '-filter_complex',
+            '[0:v]setpts=PTS-STARTPTS[v0];'
+            '[1:v]setpts=PTS-STARTPTS[v1];'
+            '[v0][v1]concat=n=2:v=1:a=0[v]',
+            '-map', '[v]',
+            '-c:v', 'libx264',
+            '-preset', 'medium',
+            '-crf', '23',
+            '-pix_fmt', 'yuv420p',
+            '-r', '30',
             '-y',
             str(output_file)
         ]
+
 
         logger.info("Running final concatenation")
         result = subprocess.run(

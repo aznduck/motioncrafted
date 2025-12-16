@@ -9,7 +9,7 @@ from app.schemas.admin import (
     OrderListResponse, OrderListItem, OrderDetailResponse,
     PhotoDetail, ClipDetail, OrderFinalizeRequest, OrderFinalizeResponse
 )
-from app.core.security import require_admin
+from app.core.security import require_admin, decode_access_token
 from app.core.database import get_db
 from app.services.storage_service import storage_service
 from app.services.video_service import video_service
@@ -198,7 +198,7 @@ async def finalize_order(
 @router.get("/orders/{order_id}/download")
 async def download_final_video(
     order_id: str,
-    current_user: dict = Depends(require_admin)
+    token: str = Query(...),
 ):
     """
     Download the final stitched video for an order
@@ -209,6 +209,12 @@ async def download_final_video(
     Returns:
         Video file stream
     """
+    payload = decode_access_token(token)
+    if payload.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="admin access required lol",
+        )
     db = get_db()
 
     # Fetch final video record
