@@ -5,6 +5,7 @@ Based on Kling v1 image2video API
 
 import time
 import requests
+import jwt
 from typing import Dict, Any
 from app.core.config import settings
 
@@ -16,8 +17,41 @@ class KlingService:
         self.access_key = settings.KLING_API_KEY
         self.secret_key = getattr(settings, 'KLING_SECRET_KEY', '')
         self.base_url = "https://api-singapore.klingai.com/v1"
-        self.headers = {
-            "Authorization": f"Bearer {self.access_key}",
+
+    def _generate_jwt_token(self) -> str:
+        """
+        Generate JWT token for Kling API authentication
+
+        Token format (RFC 7519):
+        - Header: { "alg": "HS256", "typ": "JWT" }
+        - Payload: { "iss": access_key, "exp": current_time + 1800, "nbf": current_time - 5 }
+        - Signature: signed with secret_key
+
+        Returns:
+            JWT token string
+        """
+        headers = {
+            "alg": "HS256",
+            "typ": "JWT"
+        }
+        payload = {
+            "iss": self.access_key,
+            "exp": int(time.time()) + 1800,  # Valid for 30 minutes
+            "nbf": int(time.time()) - 5  # Valid from 5 seconds ago
+        }
+        token = jwt.encode(payload, self.secret_key, headers=headers)
+        return token
+
+    def _get_headers(self) -> Dict[str, str]:
+        """
+        Get request headers with fresh JWT token
+
+        Returns:
+            Headers dict with Authorization and Content-Type
+        """
+        token = self._generate_jwt_token()
+        return {
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
 
@@ -57,7 +91,7 @@ class KlingService:
         try:
             response = requests.post(
                 endpoint,
-                headers=self.headers,
+                headers=self._get_headers(),
                 json=payload,
                 timeout=30
             )
@@ -101,7 +135,7 @@ class KlingService:
         try:
             response = requests.get(
                 endpoint,
-                headers=self.headers,
+                headers=self._get_headers(),
                 timeout=30
             )
 

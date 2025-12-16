@@ -2,18 +2,20 @@
 Customer order submission endpoint
 """
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status, BackgroundTasks
 from typing import List
 import uuid
 from app.schemas.orders import OrderCreateRequest, OrderResponse
 from app.models.database_helpers import db_helpers
 from app.services.storage_service import storage_service
+from app.services.order_processor import order_processor
 
 router = APIRouter()
 
 
 @router.post("/orders", response_model=OrderResponse)
 async def create_order(
+    background_tasks: BackgroundTasks,
     # Form fields
     customer_name: str = Form(...),
     customer_email: str = Form(...),
@@ -126,7 +128,14 @@ async def create_order(
         )
 
     # ========================================================================
-    # Step 4: Return success response
+    # Step 4: Trigger background processing
+    # ========================================================================
+
+    # Add order processing to background tasks
+    background_tasks.add_task(order_processor.process_order, order_id)
+
+    # ========================================================================
+    # Step 5: Return success response
     # ========================================================================
 
     return OrderResponse(
