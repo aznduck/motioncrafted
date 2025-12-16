@@ -24,6 +24,7 @@ app.add_middleware(
         settings.ADMIN_SITE_URL,
         "http://localhost:3000",  # Local development
         "http://localhost:3001",  # Local admin
+        "http://localhost:8080",  # Customer site (Vite)
     ],
     allow_credentials=True,
     allow_methods=["*"],

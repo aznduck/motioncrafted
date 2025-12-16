@@ -1,33 +1,34 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { Toaster } from 'sonner'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { Toaster } from 'sonner';
+import LoginPage from './pages/LoginPage';
+import OrdersPage from './pages/OrdersPage';
+import OrderDetailPage from './pages/OrderDetailPage';
 
-// Pages (will be created later)
-// import Login from './pages/Login'
-// import Orders from './pages/Orders'
-// import OrderReview from './pages/OrderReview'
-
-function App() {
-  return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-background">
-        <Routes>
-          <Route path="/" element={
-            <div className="flex items-center justify-center min-h-screen">
-              <div className="text-center space-y-4">
-                <h1 className="text-4xl font-bold">Cherished Motion Lab</h1>
-                <p className="text-xl text-muted-foreground">Admin Dashboard</p>
-                <p className="text-sm text-muted-foreground">Coming soon...</p>
-              </div>
-            </div>
-          } />
-          {/* <Route path="/login" element={<Login />} /> */}
-          {/* <Route path="/orders" element={<Orders />} /> */}
-          {/* <Route path="/orders/:id" element={<OrderReview />} /> */}
-        </Routes>
-        <Toaster />
-      </div>
-    </BrowserRouter>
-  )
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 }
 
-export default App
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
+      <Route path="/orders/:orderId" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <div className="min-h-screen bg-background">
+          <AppRoutes />
+          <Toaster />
+        </div>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}

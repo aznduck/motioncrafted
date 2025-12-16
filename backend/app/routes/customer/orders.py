@@ -3,8 +3,10 @@ Customer order submission endpoint
 """
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from typing import List
 import uuid
+import io
 from app.schemas.orders import OrderCreateRequest, OrderResponse
 from app.models.database_helpers import db_helpers
 from app.services.storage_service import storage_service
@@ -15,7 +17,6 @@ router = APIRouter()
 
 @router.post("/orders", response_model=OrderResponse)
 async def create_order(
-    background_tasks: BackgroundTasks,
     # Form fields
     customer_name: str = Form(...),
     customer_email: str = Form(...),
@@ -76,7 +77,7 @@ async def create_order(
         "customer_email": customer_email,
         "vibe": vibe,
         "personalization_message": personalization_message,
-        "status": "pending",
+        "status": "pending_payment",
         "payment_status": "unpaid"
     }
 
@@ -128,17 +129,122 @@ async def create_order(
         )
 
     # ========================================================================
-    # Step 4: Trigger background processing
+    # Step 4: Return order ID for payment
     # ========================================================================
-
-    # Add order processing to background tasks
-    background_tasks.add_task(order_processor.process_order, order_id)
-
-    # ========================================================================
-    # Step 5: Return success response
-    # ========================================================================
+    # Note: Order processing will start after payment is confirmed via webhook
 
     return OrderResponse(
         order_id=order_id,
-        message=f"Order received! We'll process your {len(photos)} photos and notify you when ready."
+        message=f"Order created! Proceed to payment to start processing."
     )
+
+
+@router.get("/orders/{order_id}")
+async def get_order(order_id: str):
+    """
+    Get order details for customer (for order tracking/delivery page)
+
+    Returns order info including status, clips, and final video if available
+    """
+    order = db_helpers.get_order_by_id(order_id)
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found"
+        )
+
+    # Get clips for this order
+    clips = db_helpers.get_clips_by_order(order_id)
+
+    # Get final video if exists
+    final_video = db_helpers.get_final_video_by_order(order_id)
+
+    return {
+        "id": order["id"],
+        "customer_name": order["customer_name"],
+        "customer_email": order["customer_email"],
+        "vibe": order["vibe"],
+        "personalization_message": order.get("personalization_message", ""),
+        "status": order["status"],
+        "payment_status": order["payment_status"],
+        "created_at": order["created_at"],
+        "clips": clips or [],
+        "final_video_url": final_video.get("storage_path") if final_video else None
+    }
+
+
+@router.post("/orders/{order_id}/checkout")
+async def create_checkout_session(order_id: str):
+    """
+    Create Stripe checkout session for order payment
+
+    This will be implemented once we add Stripe to the backend
+    For now, returns placeholder
+    """
+    order = db_helpers.get_order_by_id(order_id)
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found"
+        )
+
+    if order["payment_status"] == "paid":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Order already paid"
+        )
+
+    # TODO: Implement Stripe checkout session creation
+    # For now, return placeholder
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Stripe integration coming soon. Use test mode for now."
+    )
+
+
+@router.get("/orders/{order_id}/download")
+async def download_final_video(order_id: str):
+    """
+    Download the final video for completed orders
+    """
+    order = db_helpers.get_order_by_id(order_id)
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found"
+        )
+
+    if order["status"] != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Order not completed yet"
+        )
+
+    # Get final video
+    final_video = db_helpers.get_final_video_by_order(order_id)
+
+    if not final_video:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Final video not found"
+        )
+
+    # Download from storage
+    try:
+        video_data = storage_service.download_file(final_video["storage_path"])
+
+        return StreamingResponse(
+            io.BytesIO(video_data),
+            media_type="video/mp4",
+            headers={
+                "Content-Disposition": f"attachment; filename=cherished_motion_{order_id}.mp4"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to download video: {str(e)}"
+        )
