@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { api } from '../lib/api';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { api } from "../lib/api";
+import { toast } from "sonner";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
   const { logout } = useAuth();
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function OrdersPage() {
       const data = await api.getOrders(statusFilter || undefined);
       setOrders(data.orders);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to load orders');
+      toast.error(error.message || "Failed to load orders");
     } finally {
       setLoading(false);
     }
@@ -27,15 +27,15 @@ export default function OrdersPage() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      pending: 'bg-gray-100 text-gray-800',
-      processing: 'bg-blue-100 text-blue-800',
-      generating_clips: 'bg-yellow-100 text-yellow-800',
-      pending_review: 'bg-purple-100 text-purple-800',
-      approved: 'bg-green-100 text-green-800',
-      completed: 'bg-green-600 text-white',
-      failed: 'bg-red-100 text-red-800',
+      pending: "bg-gray-100 text-gray-800",
+      processing: "bg-blue-100 text-blue-800",
+      generating_clips: "bg-yellow-100 text-yellow-800",
+      pending_review: "bg-purple-100 text-purple-800",
+      approved: "bg-green-100 text-green-800",
+      completed: "bg-green-600 text-white",
+      failed: "bg-red-100 text-red-800",
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || "bg-gray-100 text-gray-800";
   };
 
   return (
@@ -64,6 +64,7 @@ export default function OrdersPage() {
           >
             <option value="">All Statuses</option>
             <option value="pending_review">Pending Review</option>
+            <option value="pending_payment">Pending Payment</option>
             <option value="approved">Approved</option>
             <option value="completed">Completed</option>
             <option value="failed">Failed</option>
@@ -85,18 +86,29 @@ export default function OrdersPage() {
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900">{order.customer_name}</h3>
-                    <p className="text-sm text-gray-500">{order.customer_email}</p>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {order.customer_name}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {order.customer_email}
+                    </p>
                     <p className="text-sm text-gray-600 mt-2">
-                      Vibe: <span className="font-medium">{order.vibe.replace('_', ' ')}</span>
+                      Vibe:{" "}
+                      <span className="font-medium">
+                        {order.vibe.replace("_", " ")}
+                      </span>
                     </p>
                     <p className="text-sm text-gray-600">
                       Photos: {order.photo_count} | Clips: {order.clip_count}
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                      {order.status.replace('_', ' ')}
+                    <span
+                      className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                        order.status
+                      )}`}
+                    >
+                      {order.status.replace("_", " ")}
                     </span>
                     <p className="text-xs text-gray-500 mt-2">
                       {new Date(order.created_at).toLocaleDateString()}

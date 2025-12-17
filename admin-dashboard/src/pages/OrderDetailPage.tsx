@@ -2,12 +2,20 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { toast } from "sonner";
+import RejectClipModal from "../components/RejectClipModal";
+import ConfirmModal from "../components/ConfirmModal";
 
 export default function OrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [finalizing, setFinalizing] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [clipToReject, setClipToReject] = useState<string | null>(null);
+  const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   console.log(order);
 
@@ -37,42 +45,42 @@ export default function OrderDetailPage() {
     }
   };
 
-  const handleReject = async (clipId: string) => {
-    const notes = prompt("Rejection notes (what needs improvement?):");
-    if (notes === null) return; // User cancelled
+  const handleReject = (clipId: string) => {
+    setClipToReject(clipId);
+    setRejectModalOpen(true);
+  };
 
-    let shouldRegenerate = false;
+  const handleRejectSubmit = async (notes: string, regenerate: boolean) => {
+    if (!clipToReject) return;
 
-    if (notes && notes.trim().length > 0) {
-      shouldRegenerate = confirm(
-        "Regenerate this clip automatically?\n\n" +
-        "Your feedback will be used to improve the animation prompt with AI.\n\n" +
-        "Click OK to regenerate, or Cancel to just reject without regeneration."
-      );
-    }
+    setRejectModalOpen(false);
 
     try {
-      await api.rejectClip(clipId, notes || undefined, shouldRegenerate);
+      await api.rejectClip(clipToReject, notes || undefined, regenerate);
       toast.success(
-        shouldRegenerate
+        regenerate
           ? "Clip rejected - regeneration started!"
           : "Clip rejected"
       );
       loadOrder();
     } catch (error: any) {
       toast.error(error.message);
+    } finally {
+      setClipToReject(null);
     }
   };
 
   const handleFinalize = async () => {
-    if (!confirm("Finalize this order? This will create the final video."))
-      return;
+    setFinalizeModalOpen(false);
+    setFinalizing(true);
     try {
       await api.finalizeOrder(orderId!);
-      toast.success("Order finalized! Video is being created...");
+      toast.success("Final video created successfully! 🎉");
       loadOrder();
     } catch (error: any) {
       toast.error(error.message);
+    } finally {
+      setFinalizing(false);
     }
   };
 
@@ -81,12 +89,15 @@ export default function OrderDetailPage() {
   };
 
   const handleSendEmail = async () => {
-    if (!confirm("Send delivery email to customer?")) return;
+    setEmailModalOpen(false);
+    setSendingEmail(true);
     try {
       await api.sendDeliveryEmail(orderId!);
-      toast.success("Delivery email sent successfully!");
+      toast.success(`Delivery email sent to ${order.customer_email}! ✉️`);
     } catch (error: any) {
       toast.error(error.message);
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -101,6 +112,38 @@ export default function OrderDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Reject Modal */}
+      <RejectClipModal
+        isOpen={rejectModalOpen}
+        onClose={() => {
+          setRejectModalOpen(false);
+          setClipToReject(null);
+        }}
+        onSubmit={handleRejectSubmit}
+      />
+
+      {/* Finalize Confirmation Modal */}
+      <ConfirmModal
+        isOpen={finalizeModalOpen}
+        title="Finalize Order"
+        message="This will stitch all approved clips into the final video. Are you sure you want to continue?"
+        confirmText="Finalize Order"
+        confirmColor="green"
+        onConfirm={handleFinalize}
+        onCancel={() => setFinalizeModalOpen(false)}
+      />
+
+      {/* Send Email Confirmation Modal */}
+      <ConfirmModal
+        isOpen={emailModalOpen}
+        title="Send Delivery Email"
+        message={`Send delivery email to ${order?.customer_email}?\n\nThis will send them a link to view and download their video.`}
+        confirmText="Send Email"
+        confirmColor="purple"
+        onConfirm={handleSendEmail}
+        onCancel={() => setEmailModalOpen(false)}
+      />
+
       {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
@@ -122,10 +165,21 @@ export default function OrderDetailPage() {
             </span>
             {order.status === "approved" && (
               <button
-                onClick={handleFinalize}
-                className="block w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
+                onClick={() => setFinalizeModalOpen(true)}
+                disabled={finalizing}
+                className="block w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Finalize Order
+                {finalizing ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating Video...
+                  </span>
+                ) : (
+                  "Finalize Order"
+                )}
               </button>
             )}
             {order.status === "completed" && (
@@ -137,10 +191,21 @@ export default function OrderDetailPage() {
                   Download Video
                 </button>
                 <button
-                  onClick={handleSendEmail}
-                  className="block w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium"
+                  onClick={() => setEmailModalOpen(true)}
+                  disabled={sendingEmail}
+                  className="block w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Send Delivery Email
+                  {sendingEmail ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Sending...
+                    </span>
+                  ) : (
+                    "Send Delivery Email"
+                  )}
                 </button>
               </div>
             )}

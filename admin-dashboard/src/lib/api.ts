@@ -25,14 +25,28 @@ class ApiClient {
     });
 
     if (response.status === 401) {
-      localStorage.removeItem('admin_token');
-      window.location.href = '/login';
-      throw new Error('Unauthorized');
+      // Only redirect if we're not on the login page
+      if (window.location.pathname !== '/login') {
+        localStorage.removeItem('admin_token');
+        window.location.href = '/login';
+      }
+      const error = await response.json().catch(() => ({ detail: 'Invalid email or password' }));
+      throw new Error(error.detail || 'Invalid email or password');
     }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      throw new Error(error.detail || 'Request failed');
+      // Better error handling for different status codes
+      let errorMessage = 'Request failed';
+
+      try {
+        const error = await response.json();
+        errorMessage = error.detail || error.message || `Error: ${response.status} ${response.statusText}`;
+      } catch {
+        // If response is not JSON, use status text
+        errorMessage = `${response.status}: ${response.statusText}`;
+      }
+
+      throw new Error(errorMessage);
     }
 
     return response.json();
