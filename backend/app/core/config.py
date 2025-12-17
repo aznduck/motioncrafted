@@ -37,19 +37,25 @@ class Settings(BaseSettings):
     # Stripe Payment
     STRIPE_SECRET_KEY: str
     STRIPE_WEBHOOK_SECRET: str
-    STRIPE_PRICE_PER_PHOTO: float = 6.0  # $6 per photo
+    STRIPE_PRICE_PER_PHOTO: float = 5.0  # $5 per photo
 
     # Email Service
     RESEND_API_KEY: str
 
     # Application Settings
-    DEBUG: bool = True
+    DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
+    ENVIRONMENT: str = "production"  # development, production
 
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
+
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production environment"""
+        return self.ENVIRONMENT.lower() == "production" or not self.DEBUG
 
 
 # Create settings instance

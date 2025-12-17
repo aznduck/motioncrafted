@@ -8,27 +8,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 
 # Create FastAPI app
+# Disable API docs in production for security
 app = FastAPI(
     title="Cherished Motion Lab API",
     description="Backend API for automated photo animation service",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if not settings.is_production else None,
+    redoc_url="/redoc" if not settings.is_production else None,
 )
 
-# CORS middleware
+# CORS middleware - configure allowed origins based on environment
+allowed_origins = [settings.CUSTOMER_SITE_URL, settings.ADMIN_SITE_URL]
+
+# Add localhost origins only in development
+if not settings.is_production:
+    allowed_origins.extend([
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:8080",
+    ])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        settings.CUSTOMER_SITE_URL,
-        settings.ADMIN_SITE_URL,
-        "http://localhost:3000",  # Local development
-        "http://localhost:3001",  # Local admin
-        "http://localhost:8080",  # Customer site (Vite)
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Health check endpoint
@@ -93,5 +98,5 @@ if __name__ == "__main__":
         "main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,  # Auto-reload during development
+        reload=not settings.is_production,  # Auto-reload only in development
     )

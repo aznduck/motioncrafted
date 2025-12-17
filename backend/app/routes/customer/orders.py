@@ -2,7 +2,7 @@
 Customer order submission endpoint
 """
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status, BackgroundTasks, Depends
 from fastapi.responses import StreamingResponse
 from typing import List
 import uuid
@@ -16,6 +16,7 @@ from app.services.storage_service import storage_service
 from app.services.order_processor import order_processor
 from app.services.stripe_service import stripe_service
 from app.core.config import settings
+from app.core.security import require_admin
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +37,21 @@ def run_order_processing_sync(order_id: str):
 
 
 @router.post("/orders/{order_id}/test-process")
-async def test_process_order(order_id: str):
+async def test_process_order(order_id: str, current_user: dict = Depends(require_admin)):
     """
-    TEST ENDPOINT: Manually trigger order processing
+    TEST ENDPOINT: Manually trigger order processing (Admin only)
 
     This bypasses payment and starts processing immediately.
     Use this for testing the full pipeline without Stripe integration.
+    Only available in development or with admin authentication.
     """
+    # Only allow in development environment
+    if settings.is_production:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Endpoint not available in production"
+        )
+
     order = db_helpers.get_order_by_id(order_id)
 
     if not order:
@@ -271,10 +280,8 @@ async def create_checkout_session(order_id: str):
 
     # Create Stripe checkout session
     try:
-        # Determine base URL based on environment
-        # In production, use settings.CUSTOMER_SITE_URL
-        # For local dev, use localhost:8080
-        base_url = "http://localhost:8080" if settings.DEBUG else settings.CUSTOMER_SITE_URL
+        # Use configured customer site URL
+        base_url = settings.CUSTOMER_SITE_URL
 
         checkout_data = stripe_service.create_checkout_session(
             order_id=order_id,
