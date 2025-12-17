@@ -202,8 +202,10 @@ class OrderProcessor:
             logger.info(f"Downloading generated clip")
             clip_data = self.kling.download_video(video_url)
 
-            # Upload to storage
-            clip_filename = f"photo_{photo_id}_regen.mp4"
+            # Upload to storage with unique filename (timestamp to allow multiple regenerations)
+            from datetime import datetime
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            clip_filename = f"photo_{photo_id}_regen_{timestamp}.mp4"
             clip_path = self.storage.upload_clip(
                 order_id=photo['order_id'],
                 file_data=clip_data,
