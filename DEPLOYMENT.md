@@ -63,13 +63,15 @@ ADMIN_PASSWORD=<change-this-password>
 CUSTOMER_SITE_URL=https://motioncrafted.co
 ADMIN_SITE_URL=<will-add-after-vercel-deployment>
 
-# Stripe
-STRIPE_SECRET_KEY=<your-current-stripe-key>
-STRIPE_WEBHOOK_SECRET=<your-current-webhook-secret>
+# Stripe (Optional - can configure later)
+# Leave empty if not ready to accept payments yet
+STRIPE_SECRET_KEY=<your-stripe-key>
+STRIPE_WEBHOOK_SECRET=<your-webhook-secret>
 STRIPE_PRICE_PER_PHOTO=5.0
 
-# Email
-RESEND_API_KEY=<your-current-resend-key>
+# Email (Optional - can configure later)
+# Leave empty if not ready to send emails yet
+RESEND_API_KEY=<your-resend-key>
 
 # App Settings (IMPORTANT!)
 DEBUG=False
@@ -95,6 +97,11 @@ curl https://your-backend.railway.app/health
 ```
 
 Should return: `{"status": "healthy", "database": "connected", "storage": "connected"}`
+
+**Note about optional services:**
+- If you didn't configure Stripe, payment endpoints will return an error until you add the keys
+- If you didn't configure Resend, the "Send Delivery Email" button will show an error
+- You can add these environment variables later and redeploy
 
 ---
 

@@ -10,16 +10,17 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Initialize Resend
-resend.api_key = settings.RESEND_API_KEY
+# Initialize Resend only if API key is configured
+if settings.RESEND_API_KEY:
+    resend.api_key = settings.RESEND_API_KEY
 
 
 class EmailService:
     """Service for handling email delivery via Resend"""
 
-    #todo might have to change this to an actual email later on
     def __init__(self):
         self.from_email = "Cherished Motion <noreply@cherishedmotion.com>"
+        self.is_configured = bool(settings.RESEND_API_KEY)
 
     def send_delivery_email(
         self,
@@ -41,8 +42,12 @@ class EmailService:
             Dict with email sending result
 
         Raises:
+            ValueError: If Resend is not configured
             Exception: If email sending fails
         """
+        if not self.is_configured:
+            raise ValueError("Resend email service is not configured. Please set RESEND_API_KEY environment variable.")
+
         try:
             logger.info(f"Sending delivery email to {to_email} for order {order_id}")
 

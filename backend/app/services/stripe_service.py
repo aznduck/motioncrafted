@@ -10,8 +10,9 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Initialize Stripe
-stripe.api_key = settings.STRIPE_SECRET_KEY
+# Initialize Stripe only if API key is configured
+if settings.STRIPE_SECRET_KEY:
+    stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 class StripeService:
@@ -20,6 +21,7 @@ class StripeService:
     def __init__(self):
         self.webhook_secret = settings.STRIPE_WEBHOOK_SECRET
         self.price_per_photo = settings.STRIPE_PRICE_PER_PHOTO
+        self.is_configured = bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_WEBHOOK_SECRET)
 
     def create_checkout_session(
         self,
@@ -43,8 +45,12 @@ class StripeService:
             Dict with checkout session URL and session ID
 
         Raises:
+            ValueError: If Stripe is not configured
             stripe.error.StripeError: If checkout session creation fails
         """
+        if not self.is_configured:
+            raise ValueError("Stripe is not configured. Please set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET environment variables.")
+
         try:
             # Calculate total amount (in cents for Stripe)
             unit_amount = int(self.price_per_photo * 100)  # $6.00 -> 600 cents
