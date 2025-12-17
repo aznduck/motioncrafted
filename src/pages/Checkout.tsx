@@ -98,7 +98,7 @@ const Checkout = () => {
       // Create order via backend API
       toast.info('Creating your order...');
 
-      const response = await customerApi.createOrder({
+      const orderResponse = await customerApi.createOrder({
         customer_name: formData.fullName,
         customer_email: formData.email,
         vibe: orderData.video_vibe as any,
@@ -107,23 +107,27 @@ const Checkout = () => {
       });
 
       // Store order ID for tracking
-      localStorage.setItem('mc_completed_order_id', response.order_id);
+      localStorage.setItem('mc_completed_order_id', orderResponse.order_id);
 
-      // Clear temporary order data
+      // Create Stripe checkout session
+      toast.info('Redirecting to payment...');
+
+      const checkoutResponse = await customerApi.createCheckoutSession(orderResponse.order_id);
+
+      // Clear temporary order data before redirecting
       localStorage.removeItem('mc_photoAnimations');
       localStorage.removeItem('mc_uploadedPhotos');
       localStorage.removeItem('mc_photoCount');
 
-      toast.success('Order created successfully!');
+      // Redirect to Stripe Checkout
+      window.location.href = checkoutResponse.checkout_url;
 
-      // For now, navigate to success page (Stripe integration will come later)
-      navigate('/order-confirmed');
     } catch (error: any) {
       console.error('Error creating order:', error);
       toast.error(error.message || 'Failed to create order. Please try again.');
-    } finally {
       setIsLoading(false);
     }
+    // Note: Don't set loading to false if redirecting to Stripe
   };
 
   return (

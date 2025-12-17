@@ -79,11 +79,13 @@ from app.routes.customer import orders as customer_orders
 from app.routes.admin import auth as admin_auth
 from app.routes.admin import orders as admin_orders
 from app.routes.admin import clips as admin_clips
+from app.routes import webhooks
 
 app.include_router(customer_orders.router, prefix="/api/v1/customer", tags=["customer"])
 app.include_router(admin_auth.router, prefix="/api/v1/admin", tags=["admin-auth"])
 app.include_router(admin_orders.router, prefix="/api/v1/admin", tags=["admin-orders"])
 app.include_router(admin_clips.router, prefix="/api/v1/admin", tags=["admin-clips"])
+app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 
 if __name__ == "__main__":
     import uvicorn

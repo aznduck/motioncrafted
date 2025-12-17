@@ -7,16 +7,36 @@ from fastapi.responses import StreamingResponse
 from typing import List
 import uuid
 import io
+import asyncio
+import logging
+from concurrent.futures import ThreadPoolExecutor
 from app.schemas.orders import OrderCreateRequest, OrderResponse
 from app.models.database_helpers import db_helpers
 from app.services.storage_service import storage_service
 from app.services.order_processor import order_processor
+from app.services.stripe_service import stripe_service
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Thread pool for blocking background tasks
+executor = ThreadPoolExecutor(max_workers=4)
+
+
+def run_order_processing_sync(order_id: str):
+    """Wrapper to run async order processing in a sync context"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(order_processor.process_order(order_id))
+    finally:
+        loop.close()
+
 
 @router.post("/orders/{order_id}/test-process")
-async def test_process_order(order_id: str, background_tasks: BackgroundTasks):
+async def test_process_order(order_id: str):
     """
     TEST ENDPOINT: Manually trigger order processing
 
@@ -40,13 +60,17 @@ async def test_process_order(order_id: str, background_tasks: BackgroundTasks):
     # Update payment status to paid and order status to pending
     db_helpers.update_order_status(order_id, "pending")
 
-    # Trigger background processing
-    background_tasks.add_task(order_processor.process_order, order_id)
+    # Trigger background processing in a separate thread (non-blocking!)
+    asyncio.get_event_loop().run_in_executor(
+        executor,
+        run_order_processing_sync,
+        order_id
+    )
 
     return {
-        "message": "Order processing started!",
+        "message": "Order processing started in background!",
         "order_id": order_id,
-        "note": "This is a test endpoint. In production, processing starts after payment confirmation."
+        "note": "This is a test endpoint. The API will remain responsive while processing."
     }
 
 
@@ -214,8 +238,7 @@ async def create_checkout_session(order_id: str):
     """
     Create Stripe checkout session for order payment
 
-    This will be implemented once we add Stripe to the backend
-    For now, returns placeholder
+    Returns Stripe checkout URL for customer to complete payment
     """
     order = db_helpers.get_order_by_id(order_id)
 
@@ -231,12 +254,42 @@ async def create_checkout_session(order_id: str):
             detail="Order already paid"
         )
 
-    # TODO: Implement Stripe checkout session creation
-    # For now, return placeholder
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Stripe integration coming soon. Use test mode for now."
-    )
+    # Get photo count for this order
+    photos = db_helpers.get_photos_by_order(order_id)
+    photo_count = len(photos)
+
+    if photo_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No photos found for this order"
+        )
+
+    # Create Stripe checkout session
+    try:
+        # Determine base URL based on environment
+        # In production, use settings.CUSTOMER_SITE_URL
+        # For local dev, use localhost:8080
+        base_url = "http://localhost:8080" if settings.DEBUG else settings.CUSTOMER_SITE_URL
+
+        checkout_data = stripe_service.create_checkout_session(
+            order_id=order_id,
+            photo_count=photo_count,
+            customer_email=order["customer_email"],
+            success_url=f"{base_url}/order-confirmed?order_id={order_id}",
+            cancel_url=f"{base_url}/checkout?order_id={order_id}&cancelled=true"
+        )
+
+        return {
+            "checkout_url": checkout_data["checkout_url"],
+            "session_id": checkout_data["session_id"]
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to create checkout session: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create checkout session: {str(e)}"
+        )
 
 
 @router.get("/orders/{order_id}/download")

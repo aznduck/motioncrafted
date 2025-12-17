@@ -34,9 +34,10 @@ class Settings(BaseSettings):
     CUSTOMER_SITE_URL: str = "http://localhost:3000"
     ADMIN_SITE_URL: str = "http://localhost:3001"
 
-    # Stripe (Future)
-    STRIPE_SECRET_KEY: Optional[str] = None
-    STRIPE_WEBHOOK_SECRET: Optional[str] = None
+    # Stripe Payment
+    STRIPE_SECRET_KEY: str
+    STRIPE_WEBHOOK_SECRET: str
+    STRIPE_PRICE_PER_PHOTO: float = 6.0  # $6 per photo
 
     # Application Settings
     DEBUG: bool = True

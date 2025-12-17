@@ -194,7 +194,6 @@ class VideoService:
             '-crf', '23',
             '-pix_fmt', 'yuv420p',
             '-r', '30',
-            'vsync', 'cfr',
             '-y',  # Overwrite output file
             str(output_file)
         ]
@@ -239,18 +238,23 @@ class VideoService:
             subprocess.run(['cp', str(clip_files[0]), str(output_file)], check=True)
             return output_file
 
-        # Build filter complex for crossfade transitions
-        # Format: [0][1]xfade=transition=fade:duration=0.5:offset=4.5[v01];[v01][2]xfade...
+        # Build filter complex with scaling to consistent size (1920x1080)
+        # First, scale all inputs, then apply xfade transitions
         filter_parts = []
-        current_label = "0"
 
+        # Scale all inputs to 1920x1080
+        for i in range(len(clip_files)):
+            filter_parts.append(f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v{i}]")
+
+        # Apply xfade transitions between scaled clips
+        current_label = "v0"
         for i in range(len(clip_files) - 1):
-            next_label = f"v{i:02d}"
+            next_label = f"v{i:02d}x"
             # Assuming each clip is 5 seconds, offset = 5 - fade_duration
             offset = 5.0 - fade_duration
 
             filter_parts.append(
-                f"[{current_label}][{i+1}]xfade=transition=fade:duration={fade_duration}:offset={offset * (i + 1)}[{next_label}]"
+                f"[{current_label}][v{i+1}]xfade=transition=fade:duration={fade_duration}:offset={offset * (i + 1)}[{next_label}]"
             )
             current_label = next_label
 
@@ -271,12 +275,11 @@ class VideoService:
             '-preset', 'medium',
             '-crf', '23',
             '-pix_fmt', 'yuv420p',
-            '-r', '30',
             '-y',
             str(output_file)
         ])
 
-        logger.info(f"Running FFmpeg concatenation")
+        logger.info(f"Running FFmpeg concatenation with scaling")
         result = subprocess.run(
             ffmpeg_cmd,
             capture_output=True,
