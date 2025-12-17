@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { api } from "../lib/api";
+import { toast } from "sonner";
 
 export default function OrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  console.log(order);
 
   useEffect(() => {
     loadOrder();
@@ -28,7 +30,7 @@ export default function OrderDetailPage() {
   const handleApprove = async (clipId: string) => {
     try {
       await api.approveClip(clipId);
-      toast.success('Clip approved');
+      toast.success("Clip approved");
       loadOrder();
     } catch (error: any) {
       toast.error(error.message);
@@ -36,10 +38,26 @@ export default function OrderDetailPage() {
   };
 
   const handleReject = async (clipId: string) => {
-    const notes = prompt('Rejection notes (optional):');
+    const notes = prompt("Rejection notes (what needs improvement?):");
+    if (notes === null) return; // User cancelled
+
+    let shouldRegenerate = false;
+
+    if (notes && notes.trim().length > 0) {
+      shouldRegenerate = confirm(
+        "Regenerate this clip automatically?\n\n" +
+        "Your feedback will be used to improve the animation prompt with AI.\n\n" +
+        "Click OK to regenerate, or Cancel to just reject without regeneration."
+      );
+    }
+
     try {
-      await api.rejectClip(clipId, notes || undefined);
-      toast.success('Clip rejected');
+      await api.rejectClip(clipId, notes || undefined, shouldRegenerate);
+      toast.success(
+        shouldRegenerate
+          ? "Clip rejected - regeneration started!"
+          : "Clip rejected"
+      );
       loadOrder();
     } catch (error: any) {
       toast.error(error.message);
@@ -47,10 +65,11 @@ export default function OrderDetailPage() {
   };
 
   const handleFinalize = async () => {
-    if (!confirm('Finalize this order? This will create the final video.')) return;
+    if (!confirm("Finalize this order? This will create the final video."))
+      return;
     try {
       await api.finalizeOrder(orderId!);
-      toast.success('Order finalized! Video is being created...');
+      toast.success("Order finalized! Video is being created...");
       loadOrder();
     } catch (error: any) {
       toast.error(error.message);
@@ -58,13 +77,17 @@ export default function OrderDetailPage() {
   };
 
   const handleDownload = () => {
-    window.open(api.getDownloadUrl(orderId!), '_blank');
+    window.open(api.getDownloadUrl(orderId!), "_blank");
   };
 
   if (loading) return <div className="p-8">Loading...</div>;
   if (!order) return <div className="p-8">Order not found</div>;
 
-  const allApproved = order.clips.length > 0 && order.clips.every((c: any) => c.review_status === 'approved');
+  // Filter out archived clips (regenerated clips)
+  const activeClips = order.clips.filter((c: any) => c.review_status !== "archived");
+  const allApproved =
+    activeClips.length > 0 &&
+    activeClips.every((c: any) => c.review_status === "approved");
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -72,15 +95,22 @@ export default function OrderDetailPage() {
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div>
-            <button onClick={() => navigate('/')} className="text-sm text-blue-600 hover:text-blue-800 mb-2">← Back to Orders</button>
-            <h1 className="text-2xl font-bold text-gray-900">{order.customer_name}</h1>
+            <button
+              onClick={() => navigate("/")}
+              className="text-sm text-blue-600 hover:text-blue-800 mb-2"
+            >
+              ← Back to Orders
+            </button>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {order.customer_name}
+            </h1>
             <p className="text-sm text-gray-600">{order.customer_email}</p>
           </div>
           <div className="text-right">
             <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 mb-2">
-              {order.status.replace('_', ' ')}
+              {order.status.replace("_", " ")}
             </span>
-            {order.status === 'approved' && (
+            {order.status === "approved" && (
               <button
                 onClick={handleFinalize}
                 className="block w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
@@ -88,7 +118,7 @@ export default function OrderDetailPage() {
                 Finalize Order
               </button>
             )}
-            {order.status === 'completed' && (
+            {order.status === "completed" && (
               <button
                 onClick={handleDownload}
                 className="block w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
@@ -108,7 +138,7 @@ export default function OrderDetailPage() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-gray-600">Vibe:</p>
-              <p className="font-medium">{order.vibe.replace('_', ' ')}</p>
+              <p className="font-medium">{order.vibe.replace("_", " ")}</p>
             </div>
             <div>
               <p className="text-gray-600">Photos:</p>
@@ -116,20 +146,62 @@ export default function OrderDetailPage() {
             </div>
             <div className="col-span-2">
               <p className="text-gray-600">Personalization Message:</p>
-              <p className="font-medium italic">{order.personalization_message}</p>
+              <p className="font-medium italic">
+                {order.personalization_message}
+              </p>
             </div>
           </div>
         </div>
 
+        {/* Original Photos */}
+        {order.photos && order.photos.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow mb-6">
+            <h2 className="text-lg font-semibold mb-4">
+              Original Photos ({order.photos.length})
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {order.photos.map((photo: any, index: number) => (
+                <div key={photo.id} className="relative group">
+                  <img
+                    src={photo.photo_url}
+                    alt={`Photo ${index + 1}`}
+                    className="w-full h-48 object-cover rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => window.open(photo.photo_url, "_blank")}
+                  />
+                  <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                    #{photo.upload_order + 1}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Final Video */}
+        {order.final_video_url && (
+          <div className="bg-white p-6 rounded-lg shadow mb-6">
+            <h2 className="text-lg font-semibold mb-4">Final Video</h2>
+            <div className="max-w-3xl mx-auto">
+              <video
+                controls
+                className="w-full rounded-lg bg-black shadow-lg"
+                src={order.final_video_url}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Clips */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Clips ({order.clips.length})</h2>
-          {order.clips.length === 0 ? (
+          <h2 className="text-lg font-semibold">
+            Clips ({activeClips.length})
+          </h2>
+          {activeClips.length === 0 ? (
             <div className="bg-white p-6 rounded-lg shadow text-center text-gray-500">
               No clips generated yet
             </div>
           ) : (
-            order.clips.map((clip: any) => (
+            activeClips.map((clip: any) => (
               <div key={clip.id} className="bg-white p-6 rounded-lg shadow">
                 <div className="flex gap-6">
                   {/* Video Player */}
@@ -145,7 +217,9 @@ export default function OrderDetailPage() {
                   <div className="w-64 space-y-4">
                     <div>
                       <p className="text-sm text-gray-600">Status:</p>
-                      <p className="font-medium">{clip.review_status || 'Pending'}</p>
+                      <p className="font-medium">
+                        {clip.review_status || "Pending"}
+                      </p>
                     </div>
                     {clip.admin_notes && (
                       <div>
@@ -153,7 +227,7 @@ export default function OrderDetailPage() {
                         <p className="text-sm">{clip.admin_notes}</p>
                       </div>
                     )}
-                    {clip.review_status !== 'approved' && (
+                    {clip.review_status !== "approved" && (
                       <button
                         onClick={() => handleApprove(clip.id)}
                         className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
@@ -161,7 +235,7 @@ export default function OrderDetailPage() {
                         Approve
                       </button>
                     )}
-                    {clip.review_status !== 'rejected' && (
+                    {clip.review_status !== "rejected" && (
                       <button
                         onClick={() => handleReject(clip.id)}
                         className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm font-medium"
@@ -177,9 +251,11 @@ export default function OrderDetailPage() {
         </div>
 
         {/* Summary */}
-        {allApproved && order.status === 'pending_review' && (
+        {allApproved && order.status === "pending_review" && (
           <div className="mt-6 bg-green-50 border border-green-200 p-4 rounded-lg">
-            <p className="text-green-800 font-medium">✓ All clips approved! Ready to finalize.</p>
+            <p className="text-green-800 font-medium">
+              ✓ All clips approved! Ready to finalize.
+            </p>
           </div>
         )}
       </main>

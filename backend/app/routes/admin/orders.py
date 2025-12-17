@@ -43,28 +43,47 @@ async def list_orders(
     result = query.execute()
     orders = result.data or []
 
-    # Get photo and clip counts for each order
+    if not orders:
+        return OrderListResponse(orders=[], total=0)
+
+    # Optimize: Fetch all photos and clips in batch queries
+    order_ids = [o['id'] for o in orders]
+
+    # Get all photos for these orders
+    all_photos = db.table('photos').select('id,order_id').in_('order_id', order_ids).execute()
+    photos_data = all_photos.data or []
+
+    # Build photo count map: {order_id: count}
+    photo_counts = {}
+    photo_id_to_order = {}
+    for photo in photos_data:
+        order_id = photo['order_id']
+        photo_counts[order_id] = photo_counts.get(order_id, 0) + 1
+        photo_id_to_order[photo['id']] = order_id
+
+    # Get all clips for these photos
+    if photos_data:
+        photo_ids = [p['id'] for p in photos_data]
+        all_clips = db.table('clips').select('id,photo_id').in_('photo_id', photo_ids).execute()
+        clips_data = all_clips.data or []
+
+        # Build clip count map: {order_id: count}
+        clip_counts = {}
+        for clip in clips_data:
+            order_id = photo_id_to_order.get(clip['photo_id'])
+            if order_id:
+                clip_counts[order_id] = clip_counts.get(order_id, 0) + 1
+    else:
+        clip_counts = {}
+
+    # Build response
     order_items = []
     for order in orders:
-        # Count photos
-        photos_result = db.table('photos').select('id', count='exact').eq('order_id', order['id']).execute()
-        photo_count = photos_result.count if photos_result.count else 0
-
-        # Count clips by joining with photos table
-        # Get all photos for this order first
-        photos_for_order = db.table('photos').select('id').eq('order_id', order['id']).execute()
-        photo_ids = [p['id'] for p in (photos_for_order.data or [])]
-
-        # Count clips for these photos
-        clip_count = 0
-        if photo_ids:
-            clips_result = db.table('clips').select('id', count='exact').in_('photo_id', photo_ids).execute()
-            clip_count = clips_result.count if clips_result.count else 0
-
+        order_id = order['id']
         order_items.append(OrderListItem(
             **order,
-            photo_count=photo_count,
-            clip_count=clip_count
+            photo_count=photo_counts.get(order_id, 0),
+            clip_count=clip_counts.get(order_id, 0)
         ))
 
     return OrderListResponse(
@@ -106,18 +125,30 @@ async def get_order_detail(
             detail="Order not found"
         )
 
-    # Fetch photos
+    # Fetch photos with signed URLs
     photos_result = db.table('photos').select('*').eq('order_id', order_id).order('upload_order').execute()
-    photos = [PhotoDetail(**photo) for photo in (photos_result.data or [])]
+    photos = []
+    for photo in (photos_result.data or []):
+        # Generate signed URL for photo
+        photo_url = storage_service.get_public_url(photo['storage_path'])
+        photos.append(PhotoDetail(**photo, photo_url=photo_url))
 
     # Fetch clips (join with photos to filter by order)
     clips_result = db.table('clips').select('*, photos!inner(order_id)').eq('photos.order_id', order_id).execute()
     clips = [ClipDetail(**clip) for clip in (clips_result.data or [])]
 
+    # Fetch final video if exists
+    final_video_result = db.table('final_videos').select('*').eq('order_id', order_id).execute()
+    final_video_url = None
+    if final_video_result.data and len(final_video_result.data) > 0:
+        final_video = final_video_result.data[0]
+        final_video_url = storage_service.get_public_url(final_video['storage_path'])
+
     return OrderDetailResponse(
         **order,
         photos=photos,
-        clips=clips
+        clips=clips,
+        final_video_url=final_video_url
     )
 
 
@@ -173,7 +204,8 @@ async def finalize_order(
     try:
         storage_path = video_service.create_final_video(
             order_id=order_id,
-            personalization_message=order['personalization_message']
+            personalization_message=order['personalization_message'],
+            vibe=order['vibe']
         )
 
         # Update order status to completed

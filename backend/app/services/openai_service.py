@@ -9,6 +9,34 @@ from openai import OpenAI
 from app.core.config import settings
 
 
+# System prompt for anti-AI face animation
+ANTI_AI_FACE_SYSTEM_PROMPT = """
+You are an expert at writing animation prompts for image-to-video generation.
+
+CRITICAL CONSTRAINTS (must be followed exactly):
+- Preserve the original face and identity from the input image.
+- Do NOT beautify, idealize, smooth, or alter facial structure.
+- Maintain natural skin texture, asymmetry, imperfections, and realistic proportions.
+- Avoid the "AI-generated face" look (overly smooth skin, perfect symmetry, doll-like features).
+
+CAMERA RULES (very important):
+- Camera must remain static or nearly static.
+- NO camera movement: no zooms, push-ins, pull-outs, pans, tilts, rotations, parallax, or orbit shots.
+- If motion is present, it should come ONLY from subtle subject movement, not the camera.
+
+MOTION GUIDELINES:
+- Use minimal, realistic motion (e.g. breathing, blinking, slight head or body movement).
+- Movement should feel grounded, physical, and restrained.
+
+STYLE CONTROL:
+- Avoid cinematic camera language unless explicitly allowed.
+- Do not add dramatic lighting changes, lens effects, depth warping, or facial exaggeration.
+- Keep animation faithful to the original photo.
+
+Return ONLY the final animation prompt.
+""".strip()
+
+
 class OpenAIService:
     """Service for OpenAI GPT-4 Vision integration"""
 
@@ -121,85 +149,74 @@ Return your response in this exact JSON format:
     ) -> str:
         """
         Generate animation prompt based on image analysis and selected vibe
+        Uses GPT-4 to create prompts following anti-AI face constraints
 
         Args:
             analysis: Image analysis from analyze_image()
             vibe: One of: cinematic_emotional, warm_human, joyful_alive, quiet_timeless
 
         Returns:
-            Animation prompt optimized for Kling AI
+            Animation prompt optimized for Kling AI with anti-AI face constraints
         """
 
-        # Vibe-specific templates
-        vibe_templates = {
-            "cinematic_emotional": {
-                "style": "cinematic, film-like movement with emotional depth",
-                "pacing": "deliberate and meaningful",
-                "emphasis": "story and emotional connection",
-                "tone_words": ["dramatic", "heartfelt", "evocative", "moving"]
-            },
-            "warm_human": {
-                "style": "natural, lifelike motion that feels personal and real",
-                "pacing": "gentle and authentic",
-                "emphasis": "warmth and human connection",
-                "tone_words": ["tender", "comforting", "genuine", "intimate"]
-            },
-            "joyful_alive": {
-                "style": "bright, expressive energy",
-                "pacing": "upbeat and dynamic",
-                "emphasis": "happiness and celebration",
-                "tone_words": ["joyful", "vibrant", "energetic", "lively"]
-            },
-            "quiet_timeless": {
-                "style": "minimal, almost still movement",
-                "pacing": "slow and contemplative",
-                "emphasis": "calm and timelessness",
-                "tone_words": ["serene", "peaceful", "timeless", "respectful"]
-            }
+        # Vibe-specific guidance
+        vibe_guidance = {
+            "cinematic_emotional": "Add subtle, emotional depth through minimal subject movement (breathing, slight expressions). Keep camera static. Avoid dramatic effects.",
+            "warm_human": "Focus on natural, authentic human motion (gentle breathing, soft expressions). Static camera. Maintain warmth and realism.",
+            "joyful_alive": "Include gentle, joyful expressions or slight body movement. Camera remains still. Keep energy grounded and realistic.",
+            "quiet_timeless": "Minimal, contemplative motion (breathing, very slight movement). Static camera. Emphasize calm and stillness."
         }
 
-        template = vibe_templates.get(vibe, vibe_templates["cinematic_emotional"])
+        guidance = vibe_guidance.get(vibe, vibe_guidance["cinematic_emotional"])
 
-        # Build prompt
+        # Build context from analysis
         description = analysis.get("description", "the scene")
         subjects = analysis.get("subjects", [])
-        setting = analysis.get("setting", "")
-        mood = analysis.get("mood", "")
-        actions = analysis.get("suggested_actions", [])
+        mood = analysis.get("mood", "neutral")
 
-        # Select action based on vibe
-        if actions:
-            action = actions[0]
-        else:
-            action = "natural movement"
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": ANTI_AI_FACE_SYSTEM_PROMPT
+                    },
+                    {
+                        "role": "user",
+                        "content": f"""Image description: {description}
+Subjects: {', '.join(subjects) if subjects else 'N/A'}
+Mood: {mood}
 
-        # Construct prompt
-        prompt_parts = [
-            f"Animate {description}",
-            f"with {template['style']}.",
-        ]
+Vibe guidance: {guidance}
 
-        if subjects:
-            subject_str = ", ".join(subjects[:2])  # Limit to 2 subjects
-            prompt_parts.append(f"Focus on {subject_str}")
+Create an animation prompt for Kling AI that:
+1. Preserves natural faces and identities (no AI beautification)
+2. Uses ONLY subtle subject movement (no camera movement)
+3. Follows the vibe guidance above
+4. Stays under 500 characters
 
-        if action and action != "natural movement":
-            prompt_parts.append(f"showing {action}")
+Return ONLY the prompt."""
+                    }
+                ],
+                max_tokens=200,
+                temperature=0.7
+            )
 
-        # Add tone
-        tone_word = template["tone_words"][0]
-        prompt_parts.append(f"in a {tone_word} way.")
+            prompt = response.choices[0].message.content.strip()
 
-        # Add pacing instruction
-        prompt_parts.append(f"Movement should be {template['pacing']}.")
+            # Remove quotes if GPT wrapped it
+            prompt = prompt.strip('"').strip("'")
 
-        prompt = " ".join(prompt_parts)
+            # Ensure it's not too long
+            if len(prompt) > 500:
+                prompt = prompt[:497] + "..."
 
-        # Ensure prompt isn't too long (Kling has limits)
-        if len(prompt) > 500:
-            prompt = prompt[:497] + "..."
+            return prompt
 
-        return prompt
+        except Exception as e:
+            # Fallback to simple template if OpenAI fails
+            return f"Animate {description} with minimal, natural subject movement. Static camera. Preserve natural appearance."
 
     def generate_prompt_simple(
         self,
@@ -225,6 +242,76 @@ Return your response in this exact JSON format:
 
         style = vibe_styles.get(vibe, vibe_styles["cinematic_emotional"])
         return f"Animate {description} {style}."
+
+    def refine_animation_prompt(
+        self,
+        original_prompt: str,
+        rejection_notes: str,
+        vibe: str
+    ) -> str:
+        """
+        Refine an animation prompt based on admin rejection feedback
+        Uses anti-AI face constraints to ensure natural results
+
+        Args:
+            original_prompt: The original animation prompt that was rejected
+            rejection_notes: Admin's feedback on what was wrong
+            vibe: The video vibe (for context)
+
+        Returns:
+            Improved animation prompt addressing the feedback
+        """
+        # Vibe context
+        vibe_context = {
+            "cinematic_emotional": "subtle emotional depth, minimal subject movement",
+            "warm_human": "natural authentic motion, gentle expressions",
+            "joyful_alive": "gentle joyful energy, grounded realistic movement",
+            "quiet_timeless": "minimal contemplative motion, calm stillness"
+        }
+
+        context = vibe_context.get(vibe, vibe_context["cinematic_emotional"])
+
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": ANTI_AI_FACE_SYSTEM_PROMPT
+                    },
+                    {
+                        "role": "user",
+                        "content": f"""Original prompt: "{original_prompt}"
+
+Admin feedback: "{rejection_notes}"
+
+Vibe: {vibe} ({context})
+
+Create an improved prompt that:
+1. Addresses the admin's specific feedback
+2. Follows the vibe guidance
+3. Stays under 500 characters
+
+Return ONLY the improved prompt."""
+                    }
+                ],
+                max_tokens=200,
+                temperature=0.7
+            )
+
+            refined_prompt = response.choices[0].message.content.strip()
+
+            # Remove quotes if GPT wrapped it
+            refined_prompt = refined_prompt.strip('"').strip("'")
+
+            # Ensure it's not too long
+            if len(refined_prompt) > 500:
+                refined_prompt = refined_prompt[:497] + "..."
+
+            return refined_prompt
+
+        except Exception as e:
+            raise Exception(f"Failed to refine prompt: {str(e)}")
 
 
 # Create singleton instance

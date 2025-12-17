@@ -26,7 +26,8 @@ class VideoService:
     def create_final_video(
         self,
         order_id: str,
-        personalization_message: str
+        personalization_message: str,
+        vibe: str = "cinematic_emotional"
     ) -> str:
         """
         Create final video by stitching approved clips with transitions and message
@@ -34,6 +35,7 @@ class VideoService:
         Args:
             order_id: UUID of the order
             personalization_message: Message to display at end
+            vibe: Video vibe for music selection
 
         Returns:
             Storage path of final video
@@ -66,15 +68,16 @@ class VideoService:
                 )
 
                 # Step 4: Concatenate clips with fade transitions
-                clips_video = self._concatenate_clips_with_fades(
+                clips_video = self._concatenate_clips(
                     clip_files,
                     temp_path
                 )
 
-                # Step 5: Concatenate clips video with message
+                # Step 5: Concatenate clips video with message and add music
                 final_video = self._concatenate_final_video(
                     clips_video,
                     message_file,
+                    vibe,
                     temp_path
                 )
 
@@ -211,75 +214,41 @@ class VideoService:
 
         return output_file
 
-    def _concatenate_clips_with_fades(
+    def _concatenate_clips(
         self,
         clip_files: List[Path],
-        temp_path: Path,
-        fade_duration: float = 0.5
+        temp_path: Path
     ) -> Path:
         """
-        Concatenate clips with crossfade transitions
-
-        Args:
-            clip_files: List of clip file paths
-            temp_path: Temporary directory
-            fade_duration: Fade duration in seconds
-
-        Returns:
-            Path to concatenated video
+        Concatenate clips with hard cuts (no transitions)
         """
-        logger.info(f"Concatenating {len(clip_files)} clips with fade transitions")
+
+        logger.info(f"Concatenating {len(clip_files)} clips with hard cuts")
 
         output_file = temp_path / "clips_concatenated.mp4"
-
-        if len(clip_files) == 1:
-            # Only one clip, just copy it
-            logger.info("Only one clip, no concatenation needed")
-            subprocess.run(['cp', str(clip_files[0]), str(output_file)], check=True)
-            return output_file
-
-        # Build filter complex with scaling to consistent size (1920x1080)
-        # First, scale all inputs, then apply xfade transitions
-        filter_parts = []
-
-        # Scale all inputs to 1920x1080
-        for i in range(len(clip_files)):
-            filter_parts.append(f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v{i}]")
-
-        # Apply xfade transitions between scaled clips
-        current_label = "v0"
-        for i in range(len(clip_files) - 1):
-            next_label = f"v{i:02d}x"
-            # Assuming each clip is 5 seconds, offset = 5 - fade_duration
-            offset = 5.0 - fade_duration
-
-            filter_parts.append(
-                f"[{current_label}][v{i+1}]xfade=transition=fade:duration={fade_duration}:offset={offset * (i + 1)}[{next_label}]"
-            )
-            current_label = next_label
-
-        filter_complex = ";".join(filter_parts)
 
         # Build FFmpeg command
         ffmpeg_cmd = ['ffmpeg']
 
-        # Add input files
+        # Add inputs
         for clip_file in clip_files:
             ffmpeg_cmd.extend(['-i', str(clip_file)])
 
-        # Add filter complex
+        # concat filter (video only)
         ffmpeg_cmd.extend([
-            '-filter_complex', filter_complex,
-            '-map', f'[{current_label}]',
+            '-filter_complex',
+            f'concat=n={len(clip_files)}:v=1:a=0[v]',
+            '-map', '[v]',
             '-c:v', 'libx264',
             '-preset', 'medium',
             '-crf', '23',
             '-pix_fmt', 'yuv420p',
+            '-r', '30',
             '-y',
             str(output_file)
         ])
 
-        logger.info(f"Running FFmpeg concatenation with scaling")
+        logger.info("Running FFmpeg concatenation (no fades)")
         result = subprocess.run(
             ffmpeg_cmd,
             capture_output=True,
@@ -292,49 +261,92 @@ class VideoService:
 
         return output_file
 
+
     def _concatenate_final_video(
         self,
         clips_video: Path,
         message_video: Path,
+        vibe: str,
         temp_path: Path
     ) -> Path:
         """
-        Concatenate clips video with message video
+        Concatenate clips video with message video and add background music
 
         Args:
             clips_video: Path to concatenated clips
             message_video: Path to message video
+            vibe: Video vibe for music selection
             temp_path: Temporary directory
 
         Returns:
-            Path to final video
+            Path to final video with music
         """
-        logger.info("Creating final video with message")
+        logger.info("Creating final video with message and music")
+
+        # Map vibes to music files
+        music_map = {
+            "cinematic_emotional": "cinematic_emotional.mp3",
+            "warm_human": "warm_human.mp3",
+            "joyful_alive": "joyful_alive.mp3",
+            "quiet_timeless": "quiet_timeless.mp3"
+        }
+
+        music_filename = music_map.get(vibe, "cinematic_emotional.mp3")
+        music_path = Path(__file__).parent.parent / "assets" / music_filename
 
         output_file = temp_path / "final.mp4"
 
+        # Check if music file exists
+        if not music_path.exists():
+            logger.warning(f"Music file not found: {music_path}, creating video without music")
+            # Fallback to no music
+            ffmpeg_cmd = [
+                'ffmpeg',
+                '-i', str(clips_video),
+                '-i', str(message_video),
+                '-filter_complex',
+                '[0:v]setpts=PTS-STARTPTS[v0];'
+                '[1:v]setpts=PTS-STARTPTS[v1];'
+                '[v0][v1]concat=n=2:v=1:a=0[v]',
+                '-map', '[v]',
+                '-c:v', 'libx264',
+                '-preset', 'medium',
+                '-crf', '23',
+                '-pix_fmt', 'yuv420p',
+                '-r', '30',
+                '-y',
+                str(output_file)
+            ]
+        else:
+            logger.info(f"Adding background music: {music_filename}")
+            # Concatenate videos and add music in one command
+            ffmpeg_cmd = [
+                'ffmpeg',
+                '-i', str(clips_video),      # Input 0: clips
+                '-i', str(message_video),    # Input 1: message
+                '-stream_loop', '-1',        # Loop audio infinitely
+                '-i', str(music_path),       # Input 2: music
+                '-filter_complex',
+                # Concatenate videos
+                '[0:v]setpts=PTS-STARTPTS[v0];'
+                '[1:v]setpts=PTS-STARTPTS[v1];'
+                '[v0][v1]concat=n=2:v=1:a=0[v];'
+                # Lower music volume
+                '[2:a]volume=-20dB[a]',
+                '-map', '[v]',               # Map concatenated video
+                '-map', '[a]',               # Map processed audio
+                '-c:v', 'libx264',
+                '-preset', 'medium',
+                '-crf', '23',
+                '-pix_fmt', 'yuv420p',
+                '-r', '30',
+                '-c:a', 'aac',               # Encode audio as AAC
+                '-shortest',                 # End when video ends
+                '-y',
+                str(output_file)
+            ]
 
-        # Concatenate
-        ffmpeg_cmd = [
-            'ffmpeg',
-            '-i', str(clips_video),
-            '-i', str(message_video),
-            '-filter_complex',
-            '[0:v]setpts=PTS-STARTPTS[v0];'
-            '[1:v]setpts=PTS-STARTPTS[v1];'
-            '[v0][v1]concat=n=2:v=1:a=0[v]',
-            '-map', '[v]',
-            '-c:v', 'libx264',
-            '-preset', 'medium',
-            '-crf', '23',
-            '-pix_fmt', 'yuv420p',
-            '-r', '30',
-            '-y',
-            str(output_file)
-        ]
-
-
-        logger.info("Running final concatenation")
+        logger.info("Running final concatenation with music")
         result = subprocess.run(
             ffmpeg_cmd,
             capture_output=True,

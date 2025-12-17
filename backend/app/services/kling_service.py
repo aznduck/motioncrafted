@@ -61,7 +61,7 @@ class KlingService:
         prompt: str,
         duration: int = 5,
         mode: str = "pro",
-        model_name: str = "kling-v1"
+        model_name: str = "kling-v2-5-turbo"
     ) -> str:
         """
         Submit an image2video job to Kling AI
@@ -71,7 +71,7 @@ class KlingService:
             prompt: Animation prompt (max 2500 chars)
             duration: Video duration in seconds (5 or 10)
             mode: "std" (standard) or "pro" (professional)
-            model_name: Model version (kling-v1 recommended)
+            model_name: Model version (kling-v2-5-turbo recommended)
 
         Returns:
             task_id for tracking the job

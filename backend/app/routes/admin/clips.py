@@ -128,19 +128,62 @@ async def reject_clip(
 
     message = "Clip rejected"
 
-    # If regenerate requested, update the photo's prompt and trigger regeneration
+    # If regenerate requested, refine prompt and trigger regeneration
     if request.regenerate:
         photo_id = clip['photo_id']
 
-        # Update prompt if new one provided
-        if request.new_prompt:
-            db.table('photos').update({
-                'animation_prompt': request.new_prompt
-            }).eq('id', photo_id).execute()
+        # Get photo and order to retrieve original prompt and vibe
+        photo_result = db.table('photos').select('animation_prompt, order_id, orders!inner(vibe)').eq('id', photo_id).single().execute()
+        photo = photo_result.data
 
-        # TODO: Trigger regeneration job (similar to order processor)
-        # This would resubmit the photo to Kling with the updated prompt
-        message = "Clip rejected and marked for regeneration"
+        if not photo:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Photo not found"
+            )
+
+        original_prompt = photo.get('animation_prompt', '')
+        vibe = photo['orders']['vibe']
+
+        # Option 1: Admin provides explicit new prompt
+        if request.new_prompt:
+            improved_prompt = request.new_prompt
+
+        # Option 2: Use rejection notes to refine prompt with OpenAI
+        elif request.notes:
+            from app.services.openai_service import openai_service
+            improved_prompt = openai_service.refine_animation_prompt(
+                original_prompt=original_prompt,
+                rejection_notes=request.notes,
+                vibe=vibe
+            )
+        else:
+            # No feedback provided, just regenerate with same prompt
+            improved_prompt = original_prompt
+
+        # Trigger regeneration in background
+        from app.services.order_processor import order_processor
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        executor = ThreadPoolExecutor(max_workers=2)
+
+        def run_regen_sync(clip_id: str, prompt: str):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(order_processor.regenerate_clip(clip_id, prompt))
+            finally:
+                loop.close()
+
+        asyncio.get_event_loop().run_in_executor(
+            executor,
+            run_regen_sync,
+            clip_id,
+            improved_prompt
+        )
+
+        message = f"Clip rejected and queued for regeneration"
 
     return ClipActionResponse(
         clip_id=clip_id,

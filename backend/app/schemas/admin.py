@@ -52,6 +52,7 @@ class PhotoDetail(BaseModel):
     upload_order: int
     analysis_result: Optional[dict] = None
     animation_prompt: Optional[str] = None
+    photo_url: Optional[str] = None
 
 
 class ClipDetail(BaseModel):
@@ -80,6 +81,7 @@ class OrderDetailResponse(BaseModel):
     updated_at: Optional[datetime] = None
     photos: List[PhotoDetail]
     clips: List[ClipDetail]
+    final_video_url: Optional[str] = None
 
 
 # ============================================================================

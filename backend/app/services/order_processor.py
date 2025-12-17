@@ -93,6 +93,134 @@ class OrderProcessor:
             await self._update_order_status(order_id, "failed")
             return False
 
+    async def regenerate_clip(
+        self,
+        clip_id: str,
+        improved_prompt: str
+    ) -> bool:
+        """
+        Regenerate a single clip with an improved prompt
+
+        Args:
+            clip_id: ID of the rejected clip
+            improved_prompt: The refined animation prompt
+
+        Returns:
+            True if successful, False if failed
+        """
+        try:
+            logger.info(f"Regenerating clip {clip_id} with improved prompt")
+
+            # Get the clip and associated photo
+            clip_result = self.db.table('clips').select('*, photos(*)').eq('id', clip_id).single().execute()
+            clip = clip_result.data
+
+            if not clip or not clip.get('photos'):
+                logger.error(f"Clip or photo not found for {clip_id}")
+                return False
+
+            photo = clip['photos']
+            photo_id = photo['id']
+
+            # Update photo's animation prompt
+            await self._update_photo_analysis(
+                photo_id,
+                photo.get('analysis_result', {}),
+                improved_prompt
+            )
+
+            # Mark old clip as archived (so we keep history)
+            self.db.table('clips').update({
+                'review_status': 'archived',
+                'admin_notes': f"Regenerated - {clip.get('admin_notes', '')}"
+            }).eq('id', clip_id).execute()
+
+            # Get order vibe
+            order_result = self.db.table('orders').select('vibe').eq('id', photo['order_id']).single().execute()
+            vibe = order_result.data['vibe'] if order_result.data else 'cinematic_emotional'
+
+            # Process photo with new prompt (this generates the new clip)
+            success = await self._process_photo_with_prompt(
+                photo,
+                vibe,
+                improved_prompt
+            )
+
+            return success
+
+        except Exception as e:
+            logger.error(f"Failed to regenerate clip {clip_id}: {str(e)}")
+            return False
+
+    async def _process_photo_with_prompt(
+        self,
+        photo: Dict[str, Any],
+        vibe: str,
+        prompt: str
+    ) -> bool:
+        """
+        Process a photo with a specific prompt (used for regeneration)
+        Similar to _process_photo but skips OpenAI analysis since we have the prompt
+
+        Args:
+            photo: Photo record from database
+            vibe: Selected vibe for the order
+            prompt: Pre-generated animation prompt
+
+        Returns:
+            True if successful, False if failed
+        """
+        photo_id = photo['id']
+        logger.info(f"Processing photo {photo_id} with custom prompt")
+
+        try:
+            # Get photo URL for Kling
+            photo_url = self.storage.get_public_url(photo['storage_path'])
+
+            # Submit to Kling
+            logger.info(f"Submitting photo {photo_id} to Kling AI")
+            task_id = self.kling.create_animation(
+                image_url=photo_url,
+                prompt=prompt,
+                duration=5
+            )
+
+            if not task_id:
+                logger.error(f"Failed to submit photo {photo_id} to Kling")
+                return False
+
+            # Poll Kling until complete
+            logger.info(f"Waiting for Kling (task: {task_id})")
+            result = self.kling.wait_for_completion(task_id, timeout=600)
+
+            video_url = result.get("video_url")
+            if not video_url:
+                logger.error(f"Kling generation failed for photo {photo_id}")
+                return False
+
+            # Download clip
+            logger.info(f"Downloading generated clip")
+            clip_data = self.kling.download_video(video_url)
+
+            # Upload to storage
+            clip_filename = f"photo_{photo_id}_regen.mp4"
+            clip_path = self.storage.upload_clip(
+                order_id=photo['order_id'],
+                file_data=clip_data,
+                filename=clip_filename,
+                content_type="video/mp4"
+            )
+
+            # Create new clip record
+            await self._create_clip_record(photo_id, clip_path)
+
+            logger.info(f"Successfully regenerated clip for photo {photo_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error regenerating clip for photo {photo_id}: {str(e)}")
+            return False
+
     async def _process_photo(self, photo: Dict[str, Any], vibe: str) -> bool:
         """
         Process a single photo: analyze → generate clip → save
