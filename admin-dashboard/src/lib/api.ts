@@ -72,6 +72,12 @@ class ApiClient {
     });
   }
 
+  async sendDeliveryEmail(orderId: string) {
+    return this.request<any>(`/admin/orders/${orderId}/send-delivery-email`, {
+      method: 'POST',
+    });
+  }
+
   getDownloadUrl(orderId: string): string {
     const token = localStorage.getItem('admin_token');
     return `${API_URL}/admin/orders/${orderId}/download?token=${token}`;

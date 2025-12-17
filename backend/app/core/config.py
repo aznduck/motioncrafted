@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str
     STRIPE_PRICE_PER_PHOTO: float = 6.0  # $6 per photo
 
+    # Email Service
+    RESEND_API_KEY: str
+
     # Application Settings
     DEBUG: bool = True
     LOG_LEVEL: str = "INFO"

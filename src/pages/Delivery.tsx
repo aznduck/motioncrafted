@@ -18,7 +18,7 @@ const Delivery = () => {
     loadOrder();
     // Poll for updates every 30 seconds if order is processing
     const interval = setInterval(() => {
-      if (order && order.status !== 'completed' && order.status !== 'failed') {
+      if (order && order.status !== "completed" && order.status !== "failed") {
         loadOrder();
       }
     }, 30000);
@@ -29,68 +29,71 @@ const Delivery = () => {
   const loadOrder = async () => {
     try {
       // Try to get order ID from URL params first, then localStorage
-      const orderIdFromUrl = searchParams.get('order_id');
-      const orderIdFromStorage = localStorage.getItem('mc_completed_order_id');
+      const orderIdFromUrl = searchParams.get("order_id");
+      const orderIdFromStorage = localStorage.getItem("mc_completed_order_id");
       const orderId = orderIdFromUrl || orderIdFromStorage;
 
       if (!orderId) {
-        toast.error('No order found');
-        navigate('/');
+        toast.error("No order found");
+        navigate("/");
         return;
       }
 
       const orderData = await customerApi.getOrder(orderId);
       setOrder(orderData);
     } catch (error: any) {
-      console.error('Error loading order:', error);
-      toast.error(error.message || 'Failed to load order');
+      console.error("Error loading order:", error);
+      toast.error(error.message || "Failed to load order");
     } finally {
       setLoading(false);
     }
   };
 
   const getStatusDisplay = (status: string) => {
-    const statusMap: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+    const statusMap: Record<
+      string,
+      { label: string; color: string; icon: React.ReactNode }
+    > = {
       pending_payment: {
-        label: 'Pending Payment',
-        color: 'text-yellow-600',
-        icon: <Clock className="w-5 h-5" />
+        label: "Pending Payment",
+        color: "text-yellow-600",
+        icon: <Clock className="w-5 h-5" />,
       },
       pending: {
-        label: 'Order Received',
-        color: 'text-blue-600',
-        icon: <Clock className="w-5 h-5" />
+        label: "Order Received",
+        color: "text-blue-600",
+        icon: <Clock className="w-5 h-5" />,
       },
       processing: {
-        label: 'Analyzing Photos',
-        color: 'text-blue-600',
-        icon: <Loader2 className="w-5 h-5 animate-spin" />
+        label: "Analyzing Photos",
+        color: "text-blue-600",
+        icon: <Loader2 className="w-5 h-5 animate-spin" />,
       },
       generating_clips: {
-        label: 'Generating Clips',
-        color: 'text-purple-600',
-        icon: <Loader2 className="w-5 h-5 animate-spin" />
+        label: "Generating Clips",
+        color: "text-purple-600",
+        icon: <Loader2 className="w-5 h-5 animate-spin" />,
       },
       pending_review: {
-        label: 'Under Review',
-        color: 'text-orange-600',
-        icon: <Clock className="w-5 h-5" />
+        label: "Under Review",
+        color: "text-orange-600",
+        icon: <Clock className="w-5 h-5" />,
       },
       approved: {
-        label: 'Creating Final Video',
-        color: 'text-green-600',
-        icon: <Loader2 className="w-5 h-5 animate-spin" />
+        label: "Creating Final Video",
+        color: "text-green-600",
+        icon: <Loader2 className="w-5 h-5 animate-spin" />,
       },
       completed: {
-        label: 'Completed',
-        color: 'text-green-600',
-        icon: <CheckCircle className="w-5 h-5" />
+        label: "Completed",
+        color: "text-green-600",
+        icon: <CheckCircle className="w-5 h-5" />,
       },
       failed: {
-        label: 'Failed',
-        color: 'text-red-600',
-        icon: <Clock className="w-5 h-5" />
-      }
+        label: "Failed",
+        color: "text-red-600",
+        icon: <Clock className="w-5 h-5" />,
+      },
     };
 
     return statusMap[status] || statusMap.pending;
@@ -98,7 +101,7 @@ const Delivery = () => {
 
   const handleDownload = () => {
     if (order) {
-      window.open(customerApi.getVideoDownloadUrl(order.id), '_blank');
+      window.open(customerApi.getVideoDownloadUrl(order.id), "_blank");
     }
   };
 
@@ -124,7 +127,7 @@ const Delivery = () => {
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-muted-foreground mb-4">Order not found</p>
-            <Button onClick={() => navigate('/')}>Go Home</Button>
+            <Button onClick={() => navigate("/")}>Go Home</Button>
           </div>
         </main>
         <Footer />
@@ -133,7 +136,7 @@ const Delivery = () => {
   }
 
   const statusInfo = getStatusDisplay(order.status);
-  const isCompleted = order.status === 'completed';
+  const isCompleted = order.status === "completed";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -144,12 +147,12 @@ const Delivery = () => {
           {/* Headline */}
           <div className="text-center mb-6 animate-fade-in">
             <h1 className="font-elegant text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-foreground mb-4">
-              {isCompleted ? 'Your Video is Ready!' : 'Order Status'}
+              {isCompleted ? "Your Video is Ready!" : "Order Status"}
             </h1>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
               {isCompleted
-                ? 'Thank you for trusting us with your memories. Your finished video is ready below.'
-                : 'We\'re working on your video. Check back here for updates.'}
+                ? "Thank you for trusting us with your memories. Your finished video is ready below."
+                : "We're working on your video. Check back here for updates."}
             </p>
           </div>
 
@@ -157,19 +160,28 @@ const Delivery = () => {
           <Card className="mb-8">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-4">
-                <div className={statusInfo.color}>
-                  {statusInfo.icon}
-                </div>
+                <div className={statusInfo.color}>{statusInfo.icon}</div>
                 <div>
                   <h2 className="text-xl font-semibold">{statusInfo.label}</h2>
-                  <p className="text-sm text-muted-foreground">Order ID: {order.id}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Order ID: {order.id}
+                  </p>
                 </div>
               </div>
 
               {!isCompleted && (
                 <div className="text-sm text-muted-foreground space-y-2">
-                  <p>Your video is being created. This typically takes 30-60 minutes.</p>
-                  <p>We'll send you an email at <span className="font-medium text-foreground">{order.customer_email}</span> when it's ready.</p>
+                  <p>
+                    Your video is being created. This typically takes 30-60
+                    minutes.
+                  </p>
+                  <p>
+                    We'll send you an email at{" "}
+                    <span className="font-medium text-foreground">
+                      {order.customer_email}
+                    </span>{" "}
+                    when it's ready.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -178,7 +190,10 @@ const Delivery = () => {
           {/* Video Player (only if completed) */}
           {isCompleted && order.final_video_url && (
             <>
-              <div className="my-12 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+              <div
+                className="my-12 animate-fade-in"
+                style={{ animationDelay: "0.1s" }}
+              >
                 <div className="relative w-full aspect-video bg-muted/30 rounded-lg shadow-soft overflow-hidden border border-border/50">
                   <video
                     controls
@@ -191,7 +206,10 @@ const Delivery = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+              <div
+                className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-fade-in"
+                style={{ animationDelay: "0.2s" }}
+              >
                 <Button
                   variant="hero"
                   size="xl"
@@ -211,7 +229,10 @@ const Delivery = () => {
           </div>
 
           {/* Contact Info */}
-          <div className="text-center text-sm text-muted-foreground animate-fade-in" style={{ animationDelay: '0.3s' }}>
+          <div
+            className="text-center text-sm text-muted-foreground animate-fade-in"
+            style={{ animationDelay: "0.3s" }}
+          >
             <p>
               If you need help or have questions, contact us at{" "}
               <a

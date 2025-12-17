@@ -11,8 +11,10 @@ from app.schemas.admin import (
 )
 from app.core.security import require_admin, decode_access_token
 from app.core.database import get_db
+from app.core.config import settings
 from app.services.storage_service import storage_service
 from app.services.video_service import video_service
+from app.services.email_service import email_service
 import io
 
 router = APIRouter()
@@ -224,6 +226,79 @@ async def finalize_order(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create final video: {str(e)}"
+        )
+
+
+@router.post("/orders/{order_id}/send-delivery-email")
+async def send_delivery_email(
+    order_id: str,
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Send delivery email to customer with link to their video
+
+    Args:
+        order_id: UUID of the order
+
+    Returns:
+        Success message
+    """
+    db = get_db()
+
+    # Fetch order
+    try:
+        order_result = db.table('orders').select('*').eq('id', order_id).single().execute()
+        order = order_result.data
+
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found"
+            )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found"
+        )
+
+    # Check if order is completed
+    if order['status'] != 'completed':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Order must be completed before sending delivery email. Current status: {order['status']}"
+        )
+
+    # Check if final video exists
+    final_video_result = db.table('final_videos').select('*').eq('order_id', order_id).execute()
+    if not final_video_result.data or len(final_video_result.data) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Final video not found for this order"
+        )
+
+    # Create delivery URL
+    delivery_url = f"{settings.CUSTOMER_SITE_URL}/delivery?order_id={order_id}"
+
+    # Send email
+    try:
+        result = email_service.send_delivery_email(
+            to_email=order['customer_email'],
+            customer_name=order['customer_name'],
+            order_id=order_id,
+            delivery_url=delivery_url
+        )
+
+        return {
+            "success": True,
+            "message": f"Delivery email sent to {order['customer_email']}",
+            "email_id": result.get("email_id")
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to send delivery email: {str(e)}"
         )
 
 

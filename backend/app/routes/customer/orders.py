@@ -219,6 +219,11 @@ async def get_order(order_id: str):
     # Get final video if exists
     final_video = db_helpers.get_final_video_by_order(order_id)
 
+    # Generate public URL for final video if it exists
+    final_video_url = None
+    if final_video and final_video.get("storage_path"):
+        final_video_url = storage_service.get_public_url(final_video["storage_path"])
+
     return {
         "id": order["id"],
         "customer_name": order["customer_name"],
@@ -229,7 +234,7 @@ async def get_order(order_id: str):
         "payment_status": order["payment_status"],
         "created_at": order["created_at"],
         "clips": clips or [],
-        "final_video_url": final_video.get("storage_path") if final_video else None
+        "final_video_url": final_video_url
     }
 
 

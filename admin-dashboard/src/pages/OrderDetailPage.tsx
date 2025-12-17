@@ -80,6 +80,16 @@ export default function OrderDetailPage() {
     window.open(api.getDownloadUrl(orderId!), "_blank");
   };
 
+  const handleSendEmail = async () => {
+    if (!confirm("Send delivery email to customer?")) return;
+    try {
+      await api.sendDeliveryEmail(orderId!);
+      toast.success("Delivery email sent successfully!");
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
   if (loading) return <div className="p-8">Loading...</div>;
   if (!order) return <div className="p-8">Order not found</div>;
 
@@ -119,12 +129,20 @@ export default function OrderDetailPage() {
               </button>
             )}
             {order.status === "completed" && (
-              <button
-                onClick={handleDownload}
-                className="block w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
-              >
-                Download Video
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={handleDownload}
+                  className="block w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+                >
+                  Download Video
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  className="block w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium"
+                >
+                  Send Delivery Email
+                </button>
+              </div>
             )}
           </div>
         </div>
