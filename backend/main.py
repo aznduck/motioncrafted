@@ -20,13 +20,6 @@ app = FastAPI(
 # CORS middleware - configure allowed origins based on environment
 allowed_origins = [settings.CUSTOMER_SITE_URL, settings.ADMIN_SITE_URL]
 
-# Add www version of customer site if it doesn't already have www
-if settings.CUSTOMER_SITE_URL and "www." not in settings.CUSTOMER_SITE_URL:
-    www_url = settings.CUSTOMER_SITE_URL.replace("https://", "https://www.")
-    allowed_origins.append(www_url)
-elif settings.CUSTOMER_SITE_URL and "www." in settings.CUSTOMER_SITE_URL:
-    non_www_url = settings.CUSTOMER_SITE_URL.replace("https://www.", "https://")
-    allowed_origins.append(non_www_url)
 
 # Add localhost origins only in development
 if not settings.is_production:
