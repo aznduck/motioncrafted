@@ -28,7 +28,6 @@ const Hero = () => {
             </p>
             <p className="text-base sm:text-lg italic text-muted-foreground max-w-xl mx-auto lg:mx-0">
               Designed to make your loved one tear up the moment they watch it.
-              yes
             </p>
             <div className="pt-4 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button

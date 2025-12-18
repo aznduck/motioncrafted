@@ -19,7 +19,7 @@ class EmailService:
     """Service for handling email delivery via Resend"""
 
     def __init__(self):
-        self.from_email = "Cherished Motion <noreply@cherishedmotion.com>"
+        self.from_email = "Motion Crafted <noreply@motioncrafted.co>"
         self.is_configured = bool(settings.RESEND_API_KEY)
 
     def send_delivery_email(
