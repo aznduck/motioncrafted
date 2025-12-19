@@ -221,6 +221,7 @@ class VideoService:
     ) -> Path:
         """
         Concatenate clips with hard cuts (no transitions)
+        Normalizes all videos to 1080p (1920x1080) before concatenating
         """
 
         logger.info(f"Concatenating {len(clip_files)} clips with hard cuts")
@@ -234,10 +235,26 @@ class VideoService:
         for clip_file in clip_files:
             ffmpeg_cmd.extend(['-i', str(clip_file)])
 
+        # Build filter: scale each video to 1920x1080 with padding, then concat
+        # This ensures all videos have the same dimensions
+        filter_parts = []
+        for i in range(len(clip_files)):
+            # Scale and pad each video to 1920x1080
+            # scale=1920:1080:force_original_aspect_ratio=decrease pads with black bars
+            # pad=1920:1080:(ow-iw)/2:(oh-ih)/2 centers the video
+            filter_parts.append(
+                f'[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,'
+                f'pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}]'
+            )
+
+        # Concatenate all normalized videos
+        concat_inputs = ''.join(f'[v{i}]' for i in range(len(clip_files)))
+        filter_complex = ';'.join(filter_parts) + f';{concat_inputs}concat=n={len(clip_files)}:v=1:a=0[v]'
+
         # concat filter (video only)
         ffmpeg_cmd.extend([
             '-filter_complex',
-            f'concat=n={len(clip_files)}:v=1:a=0[v]',
+            filter_complex,
             '-map', '[v]',
             '-c:v', 'libx264',
             '-preset', 'medium',
@@ -248,7 +265,7 @@ class VideoService:
             str(output_file)
         ])
 
-        logger.info("Running FFmpeg concatenation (no fades)")
+        logger.info("Running FFmpeg concatenation with normalization")
         result = subprocess.run(
             ffmpeg_cmd,
             capture_output=True,
