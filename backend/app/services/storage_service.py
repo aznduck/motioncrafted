@@ -3,11 +3,15 @@ Storage Service - Handles file uploads/downloads with Supabase Storage
 """
 
 import os
+import time
+import logging
 from typing import BinaryIO, Optional
 from pathlib import Path
 from supabase import Client
 from app.core.database import get_db
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class StorageService:
@@ -140,6 +144,7 @@ class StorageService:
     def get_public_url(self, storage_path: str) -> str:
         """
         Get public URL for a file (for private buckets, use signed URLs)
+        Includes retry logic to handle intermittent Supabase connection issues
 
         Args:
             storage_path: Path to file in storage
@@ -147,16 +152,33 @@ class StorageService:
         Returns:
             Public URL
         """
-        try:
-            # For private buckets, create a signed URL (expires in 1 hour)
-            response = self.client.storage.from_(self.bucket_name).create_signed_url(
-                path=storage_path,
-                expires_in=3600  # 1 hour
-            )
-            return response['signedURL']
+        max_retries = 3
 
-        except Exception as e:
-            raise Exception(f"Failed to generate signed URL: {str(e)}")
+        for attempt in range(max_retries):
+            try:
+                # For private buckets, create a signed URL (expires in 1 hour)
+                response = self.client.storage.from_(self.bucket_name).create_signed_url(
+                    path=storage_path,
+                    expires_in=3600  # 1 hour
+                )
+                return response['signedURL']
+
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    # Wait before retrying (exponential backoff: 1s, 2s, 4s)
+                    wait_time = 2 ** attempt
+                    logger.warning(
+                        f"Failed to generate signed URL for {storage_path} "
+                        f"(attempt {attempt + 1}/{max_retries}), retrying in {wait_time}s: {str(e)}"
+                    )
+                    time.sleep(wait_time)
+                else:
+                    # Final attempt failed
+                    logger.error(
+                        f"Failed to generate signed URL for {storage_path} "
+                        f"after {max_retries} attempts: {str(e)}"
+                    )
+                    raise Exception(f"Failed to generate signed URL after {max_retries} attempts: {str(e)}")
 
     def delete_file(self, storage_path: str) -> bool:
         """
