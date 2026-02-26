@@ -70,9 +70,3 @@ admin-dashboard/
 └── vite.config.ts
 ```
 
-## Default Admin Credentials
-
-- **Email**: luke@cherishedmotion.com
-- **Password**: changeme123
-
-⚠️ **Change this password immediately after first login!**
