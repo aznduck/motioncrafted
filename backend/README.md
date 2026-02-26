@@ -100,25 +100,3 @@ backend/
 └── .env                # Environment variables (not in git)
 ```
 
-## Testing
-
-```bash
-pytest
-```
-
-## Deployment
-
-See main project README for deployment instructions to Railway.
-
-## API Documentation
-
-Once the server is running, visit:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## Admin Credentials (Initial)
-
-- **Email**: luke@cherishedmotion.com
-- **Password**: changeme123
-
-⚠️ **Change this password immediately after first login!**
